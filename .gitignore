@@ -1,0 +1,65 @@
+# ===== .NET / ASP.NET Core (backend) =====
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Ll]og/
+*.user
+*.userosscache
+*.suo
+*.rsuser
+*.sln.docstates
+.vs/
+TestResults/
+*.nupkg
+*.snupkg
+project.lock.json
+artifacts/
+
+# appsettings.json vai pro Git (só config sem segredo)
+# Segredos (connection string, API keys) ficam nos appsettings.*.json locais
+appsettings.*.json
+!appsettings.Example.json
+
+# Bancos locais
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# ===== Node / React / Vite (frontend) =====
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.vite/
+.eslintcache
+*.local
+*.tsbuildinfo
+
+# ===== Env / Secrets =====
+# .env.example vai pro Git como modelo
+.env
+.env.*
+!.env.example
+
+# ===== Logs =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== Editores =====
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.sw?
+
+# ===== Sistema operacional =====
+.DS_Store
+Thumbs.db
+Desktop.ini
