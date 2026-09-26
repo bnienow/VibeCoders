@@ -37,11 +37,11 @@ Desafio: "A cantina ainda anota no caderninho"
 | ID | Requisito | Onde é atendido |
 |---|---|---|
 | R1 | Cadastro de alunos e responsáveis, com vínculo | `UsuariosController`, `AlunosController`, `AdultosController` — telas de Cadastro e Gestão de Filhos |
-| R2 | Cardápio do dia com itens, preços e disponibilidade | `ItensController.GetCardapio()` — tela Cardápio |
+| R2 | Cardápio do dia com itens, preços e disponibilidade | `DispCardapio` + `ItensController.GetCardapio()` — tela Cardápio |
 | R3 | Pedido antecipado (monta pedido + escolhe intervalo) | `PedidosController.Create()` com `TipoVenda = Antecipado` |
 | R4 | Retirada identificada por código, senha ou nome | `Pedido.CodigoRetirada` + busca no Painel da Cantina |
 | R5 | Venda direta no balcão, poucos toques, lançamento na conta ou pagamento na hora | `PedidosController.CreateBalcao()` — tela PDV Balcão |
-| R6 | Lançamento na conta do aluno a cada compra | `Movimento` + atualização de `Saldo` na mesma transação |
+| R6 | Lançamento na conta do aluno a cada compra | `Conta` + `Movimento` na mesma transação |
 | R7 | Extrato e fechamento mensal, com histórico de consumo | `ExtratosController`, `FechamentosController` — tela Extrato |
 | R8 | Painel da cantina com pedidos do próximo intervalo | `PainelController.GetIntervaloAtual()` — tela Painel |
 
@@ -63,12 +63,12 @@ Desafio: "A cantina ainda anota no caderninho"
 | Regra | Implementação |
 |---|---|
 | **O balcão nunca fecha** | Pedido antecipado é caminho a mais, não o único. `TipoVenda = Balcao` sempre disponível, independente de horário |
-| **Fiado tem teto** | Conta pode ficar negativa até **R$ 250,00**. Passou disso, só à vista. Validado em `ValidacaoPedidoService` |
+| **Fiado tem teto** | `Conta.Saldo` pode ficar negativo até **R$ 250,00**. Passou disso, só à vista. Validado em `ValidacaoPedidoService` |
 | **Pedido fecha antes** | Pedidos antecipados fecham **15 minutos antes** do intervalo começar. Depois disso, cozinha já está montando |
 | **Um pedido por intervalo** | Um `Pedido` por aluno por intervalo. Incluir mais itens = alterar o pedido existente enquanto estiver `Aberto` |
 | **Cancelar só antes do fechamento** | Depois que fecha, sem cancelamento nem estorno. Pedidos já feitos são honrados |
-| **Item esgotado some** | `Estoque = 0` → item sai do cardápio, mas pedidos já feitos continuam válidos. Estoque é decrementado na **confirmação**, não na entrega |
-| **O limite é do responsável** | Aluno não altera o próprio limite de gasto nem o próprio saldo. Bloqueio por permissão |
+| **Item esgotado some** | Item sem oferta em `DispCardapio` ou com `Estoque = 0` sai do cardápio do intervalo, mas pedidos já confirmados continuam válidos. Estoque é decrementado na **confirmação**, não na entrega |
+| **O limite é do responsável** | Aluno não altera o próprio limite de gasto nem movimenta diretamente sua `Conta`. Bloqueio por permissão |
 | **Fechamento no dia 1º** | Cada responsável recebe o consolidado do mês anterior, item a item |
 
 ### Restrições técnicas (do briefing)
@@ -134,7 +134,6 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | Matricula | string | usada na busca do balcão |
 | Turma | string | |
 | LimiteDiario | decimal? | definido pelo responsável (D2). Null = sem limite |
-| Saldo | decimal | positivo = crédito; negativo = fiado (mínimo -250) |
 | RestricoesAlimentares | string | lista de alérgenos, separada por vírgula (D3) |
 
 ### Adulto
@@ -144,8 +143,21 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | UsuarioId | int | PK / FK → Usuario |
 | Cpf | string | |
 | Telefone | string | usado no WhatsApp (D4) |
-| Saldo | decimal | responsável também pode comprar |
 | MetodoPagamentoPadraoId | int? | FK → MetodoPagamento |
+
+### Conta
+
+Conta financeira do aluno ou adulto; centraliza o saldo que antes estava nas duas entidades.
+
+| Campo | Tipo | Observação |
+|---|---|---|
+| Id | int | PK |
+| UsuarioId | int | FK única → Usuario (uma conta por usuário comprador) |
+| Saldo | decimal | positivo = crédito; negativo = fiado (mínimo -250 para o aluno) |
+| Ativa | bool | |
+| AtualizadaEm | DateTime | |
+
+Toda alteração de `Saldo` cria `Movimento` na mesma transação. Compra paga à vista não debita a conta.
 
 ### Item
 
@@ -159,6 +171,19 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | Categoria | enum | `Salgado` \| `Doce` \| `Bebida` \| `Combo` |
 | Alergenos | string | `Gluten,Lactose,Amendoim...` (D3) |
 | Ativo | bool | desativa sem apagar histórico |
+
+### DispCardapio
+
+Oferta de itens por data e intervalo, separada do estoque global de `Item`.
+
+| Campo | Tipo | Observação |
+|---|---|---|
+| Data | DateOnly | PK composta |
+| IntervaloId | int | PK composta / FK → Intervalo |
+| ItemId | int | PK composta / FK → Item |
+| Disponivel | bool | indica se o item é oferecido naquele intervalo |
+
+O cardápio mostra somente itens ativos, disponíveis em `DispCardapio` e com `Item.Estoque > 0`. No balcão fora de um intervalo, a regra atual continua permitindo item ativo com estoque.
 
 ### Pedido
 
@@ -189,12 +214,12 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 > **Por que congelar o preço:** se a cantina mudar o preço amanhã, o extrato do mês passado não pode mudar junto. Sem isso, a cena 4 e o fechamento do dia 1º ficam errados.
 
 ### Movimento
-Conta corrente do usuário — alimenta extrato (R7) e fechamento.
+Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 
 | Campo | Tipo | Observação |
 |---|---|---|
 | Id | int | PK |
-| UsuarioId | int | FK → Usuario |
+| ContaId | int | FK → Conta |
 | Tipo | enum | `Compra` \| `Credito` \| `Pagamento` \| `Estorno` |
 | Valor | decimal | negativo em Compra, positivo em Crédito/Pagamento |
 | Data | DateTime | |
@@ -258,6 +283,8 @@ Conta corrente do usuário — alimenta extrato (R7) e fechamento.
 │   ├── Aluno.cs
 │   ├── Adulto.cs
 │   ├── Item.cs
+│   ├── Conta.cs
+│   ├── DispCardapio.cs
 │   ├── Pedido.cs
 │   ├── ItemPedido.cs
 │   ├── Movimento.cs
@@ -290,8 +317,8 @@ Conta corrente do usuário — alimenta extrato (R7) e fechamento.
 │   └── AutoMapperProfile.cs
 │
 ├── Services/
-│   ├── ValidacaoPedidoService.cs    ← teto R$250 + limite diário + estoque + janela
-│   ├── ContaService.cs              ← Movimento + atualização de saldo (transacional)
+│   ├── ValidacaoPedidoService.cs    ← teto R$250 + limite diário + disponibilidade + estoque + janela
+│   ├── ContaService.cs              ← Movimento + Conta.Saldo (transacional)
 │   ├── PedidoService.cs             ← criação/alteração/cancelamento
 │   ├── FechamentoService.cs         ← consolidado do dia 1º
 │   ├── GatewaySimuladoService.cs    ← D1
@@ -333,7 +360,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/alunos` | Lista (filtro `?busca=` por nome/matrícula — usado no balcão) |
-| GET | `/api/alunos/{id}` | Detalhe com saldo e restrições |
+| GET | `/api/alunos/{id}` | Detalhe com saldo da `Conta` e restrições |
 | POST | `/api/alunos` | Cadastra aluno vinculado a um adulto — R1 |
 | GET | `/api/adultos/{id}/filhos` | Filhos do responsável |
 | PUT | `/api/alunos/{id}/limite` | Define limite diário — D2 (só Adulto) |
@@ -343,11 +370,12 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 ### Itens / Cardápio
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/itens/cardapio` | Cardápio do dia: ativos com `Estoque > 0` — R2 |
+| GET | `/api/itens/cardapio?data=&intervaloId=` | Cardápio: oferta em `DispCardapio`, item ativo e `Estoque > 0` — R2 |
 | GET | `/api/itens` | Todos (gestão da cantina) |
 | POST | `/api/itens` | Cria item |
 | PUT | `/api/itens/{id}` | Edita nome, descrição, preço, alérgenos |
 | PUT | `/api/itens/{id}/estoque` | Ajusta estoque |
+| PUT | `/api/cardapio/{data}/{intervaloId}/{itemId}` | Disponibiliza ou retira item no dia/intervalo |
 | DELETE | `/api/itens/{id}` | Desativa (soft delete) |
 
 ### Pedidos
@@ -409,10 +437,10 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 
 **Cardápio (R2 + R3)**
 - Grid de itens: nome, **descrição**, preço, badge de alérgeno
-- Item com `Estoque = 0` não aparece
+- Item sem oferta em `DispCardapio` ou com `Estoque = 0` não aparece
 - Item que conflita com a restrição do aluno: badge vermelho "Contém lactose" (D3)
 - Seletor de intervalo (Manhã/Tarde) com contador: *"Fecha em 12 min"*
-- Carrinho lateral com total em tempo real e saldo projetado
+- Carrinho lateral com total em tempo real e saldo projetado da `Conta`
 - Botão **Confirmar pedido** — desabilitado se estourar limite/teto, com a mensagem do motivo
 
 **Meus pedidos**
@@ -483,7 +511,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 Todo pedido passa pelas seguintes checagens, em ordem:
 
 1. **Janela de tempo** (só `Antecipado`) — agora < `HoraInicio - MinutosAntecedencia`; senão: *"Pedidos para este intervalo já fecharam"*
-2. **Estoque** — todo item com `Estoque >= Quantidade`; senão: *"{Item} esgotou"*
+2. **Disponibilidade e estoque** — item oferecido em `DispCardapio` para data/intervalo e com `Estoque >= Quantidade`; senão: *"{Item} esgotou"*
 3. **Pedido duplicado** — já existe pedido do aluno neste intervalo/data? Então altera em vez de criar
 4. **Limite diário (D2)** — `gastoDoDia + total <= LimiteDiario`; senão: *"Limite diário de R$ X atingido"*
 5. **Teto de fiado** — `saldo - total >= -250`; senão: *"Limite de R$ 250,00 atingido — somente à vista"*
@@ -495,7 +523,7 @@ Dentro de uma única transação:
 1. Cria `Pedido` + `ItemPedido` (com preço congelado)
 2. Decrementa `Item.Estoque`
 3. Cria `Movimento` do tipo `Compra`
-4. Atualiza `Aluno.Saldo` / `Adulto.Saldo`
+4. Atualiza `Conta.Saldo`
 5. Grava `SaldoApos` no movimento
 
 Se qualquer passo falhar, nada é gravado.
@@ -523,7 +551,8 @@ Nenhum dado real — tudo fictício.
 
 - **2 intervalos:** Manhã (09:00–09:20), Tarde (15:30–15:50)
 - **38 itens** com nome, descrição, preço, estoque e alérgenos
-- **~20 alunos** distribuídos entre **~10 responsáveis**, incluindo:
+- **`DispCardapio`** para os intervalos do dia da demonstração, cobrindo os itens oferecidos
+- **~20 alunos** distribuídos entre **~10 responsáveis**, com `Conta` para cada comprador, incluindo:
   - 1 aluno com saldo positivo
   - 1 aluno próximo ao teto (ex.: saldo −R$ 240) → usado na **cena 5**
   - 1 aluno com restrição de lactose → usado na demo de **D3**
@@ -551,8 +580,8 @@ Nenhum dado real — tudo fictício.
 
 | Fase | Tempo | Entrega |
 |---|---|---|
-| **0 — Setup** | 30 min | Monorepo, projetos criados, CORS, DbContext, migration inicial, seed rodando |
-| **1 — Núcleo** | 3h | Entidades, Auth, Itens/Cardápio, Pedido antecipado com validações → **cena 1** |
+| **0 — Setup** | 30 min | Monorepo, projetos criados, CORS, DbContext, migration com `Conta` e `DispCardapio`, seed rodando |
+| **1 — Núcleo** | 3h | Entidades, `Conta`, Auth, Itens/`DispCardapio`, pedido antecipado com validações → **cena 1** |
 | **2 — Cantina** | 3h | Painel do intervalo + entrega + PDV balcão → **cenas 2 e 3** |
 | **3 — Responsável** | 2h | Extrato, crédito, limite → **cena 4** |
 | **4 — Limites** | 1h | Teto R$ 250 e mensagens de bloqueio → **cena 5** |
@@ -593,3 +622,4 @@ npm run dev
 ```
 VITE_API_URL=http://localhost:5000/api
 ```
+
