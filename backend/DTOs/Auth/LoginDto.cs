@@ -4,9 +4,9 @@ namespace Backend.DTOs.Auth;
 
 public class LoginDto
 {
-    [Required]
+    [Required(ErrorMessage = "Informe o e-mail.")]
     public string Email { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Informe a senha.")]
     public string Senha { get; set; } = string.Empty;
 }

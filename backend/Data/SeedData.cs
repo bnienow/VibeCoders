@@ -63,11 +63,6 @@ public static class SeedData
         new("Vitamina de banana", "Copo de 300 ml, batida com leite", 7.50m, CategoriaItem.Bebida, "Lactose"),
         new("Leite", "Copo de 200 ml", 3.50m, CategoriaItem.Bebida, "Lactose"),
         new("Café com leite", "Copo de 200 ml", 4.00m, CategoriaItem.Bebida, "Lactose"),
-
-        new("Combo Lanche", "Pão de queijo + suco de laranja", 9.50m, CategoriaItem.Combo, "Lactose"),
-        new("Combo Coxinha", "Coxinha + refrigerante lata", 11.00m, CategoriaItem.Combo, "Gluten,Lactose"),
-        new("Combo Misto", "Misto quente + achocolatado", 11.00m, CategoriaItem.Combo, "Gluten,Lactose,Soja"),
-        new("Combo Doce", "Brigadeiro + água mineral", 5.50m, CategoriaItem.Combo, "Lactose"),
     ];
 
     private static readonly string[] Responsaveis =

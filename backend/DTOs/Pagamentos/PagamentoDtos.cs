@@ -17,7 +17,7 @@ public class CreateMetodoPagamentoDto
 {
     public TipoMetodoPagamento Tipo { get; set; }
 
-    [Required]
+    [Required(ErrorMessage = "Informe um apelido para o método.")]
     public string Apelido { get; set; } = string.Empty;
 
     public string UltimosDigitos { get; set; } = string.Empty;
@@ -32,7 +32,7 @@ public class SimularPagamentoDto
     // Conta que recebe o crédito: o próprio responsável ou um filho
     public int UsuarioId { get; set; }
 
-    [Range(1, 1000)]
+    [Range(1, 1000, ErrorMessage = "O crédito precisa ser entre R$ 1,00 e R$ 1.000,00.")]
     public decimal Valor { get; set; }
 
     public int? MetodoPagamentoId { get; set; }

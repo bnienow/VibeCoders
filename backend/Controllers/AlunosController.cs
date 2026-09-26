@@ -64,18 +64,20 @@ public class AlunosController : ControllerBase
     [HttpPost]
     public async Task<AlunoDto> Cadastrar(CreateAlunoDto dto)
     {
-        if (!dto.Email.EndsWith("@" + Aluno.DominioEmail))
+        var email = dto.Email.Trim().ToLowerInvariant();
+
+        if (!email.EndsWith("@" + Aluno.DominioEmail))
             throw new RegraException($"O e-mail do aluno precisa ser @{Aluno.DominioEmail}");
 
-        if (await _db.Usuarios.AnyAsync(u => u.Email == dto.Email))
+        if (await _db.Usuarios.AnyAsync(u => u.Email == email))
             throw new RegraException("E-mail já cadastrado");
 
         var agora = DateTime.Now;
 
         var usuario = new Usuario
         {
-            Nome = dto.Nome,
-            Email = dto.Email,
+            Nome = dto.Nome.Trim(),
+            Email = email,
             Permissao = Permissao.Aluno,
             CriadoEm = agora,
         };

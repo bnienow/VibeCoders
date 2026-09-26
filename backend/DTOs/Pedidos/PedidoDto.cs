@@ -9,6 +9,7 @@ public class PedidoDto
     public int UsuarioId { get; set; }
     public string UsuarioNome { get; set; } = string.Empty;
     public DateOnly Data { get; set; }
+    public int? IntervaloId { get; set; }
     public string? Intervalo { get; set; }
     public StatusPedido Status { get; set; }
     public TipoVenda TipoVenda { get; set; }

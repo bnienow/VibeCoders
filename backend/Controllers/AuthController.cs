@@ -39,8 +39,9 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<UsuarioLogadoDto>> Login(LoginDto dto)
     {
+        var email = dto.Email.Trim().ToLowerInvariant();
         var usuario = await _db.Usuarios
-            .SingleOrDefaultAsync(u => u.Email == dto.Email && u.Ativo);
+            .SingleOrDefaultAsync(u => u.Email == email && u.Ativo);
 
         if (usuario is null || !SenhaConfere(usuario, dto.Senha))
             return Unauthorized(CredenciaisInvalidas);
@@ -58,7 +59,8 @@ public class AuthController : ControllerBase
     [HttpPost("registro")]
     public async Task<ActionResult<UsuarioLogadoDto>> Registro(RegistroDto dto)
     {
-        var emailEmUso = await _db.Usuarios.AnyAsync(u => u.Email == dto.Email);
+        var email = dto.Email.Trim().ToLowerInvariant();
+        var emailEmUso = await _db.Usuarios.AnyAsync(u => u.Email == email);
         if (emailEmUso)
             return Conflict("E-mail já cadastrado");
 
@@ -66,8 +68,8 @@ public class AuthController : ControllerBase
 
         var usuario = new Usuario
         {
-            Nome = dto.Nome,
-            Email = dto.Email,
+            Nome = dto.Nome.Trim(),
+            Email = email,
             Permissao = Permissao.Adulto,
             CriadoEm = agora,
         };

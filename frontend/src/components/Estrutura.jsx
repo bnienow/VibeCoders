@@ -1,10 +1,9 @@
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import Footer from './Footer';
 import { useAuth } from '../hooks/useAuth';
 import { MENU, PAGINA_INICIAL } from '../rotas';
 
 // Layout da área logada. Sem sessão → login; logado em outro perfil → página inicial dele.
-// Com acesso: cabeçalho com o menu do perfil + página (Outlet) + rodapé.
+// Com acesso: cabeçalho com o menu do perfil + página (Outlet).
 // NavLink marca o link da página atual com a classe "active" ("end" = só o endereço exato).
 export default function Estrutura({ permissoes }) {
   const { usuario, carregando, sair } = useAuth();
@@ -26,6 +25,5 @@ export default function Estrutura({ permissoes }) {
       <div className="header-actions"><strong className="small">{usuario.nome}</strong><button type="button" className="btn secondary" onClick={encerrarSessao}>Sair</button></div>
     </div></header>
     <main className="main"><div className="container"><Outlet /></div></main>
-    <Footer />
   </div>;
 }

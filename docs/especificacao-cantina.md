@@ -13,7 +13,7 @@ Desafio: "A cantina ainda anota no caderninho"
 | Intervalos por dia | 2 (09:00 e 15:30) |
 | Minutos por intervalo | 20 |
 | Atendimentos por intervalo | ~230 |
-| Itens no cardápio | 38 |
+| Itens no cardápio | 38 no briefing (34 na massa de teste, sem combos) |
 | Pessoas atendendo | 3 (só 1 opera o sistema, no caixa, com a conta Admin) |
 
 **Implicação de projeto:** ~5 segundos por atendimento no balcão. A tela do balcão é a parte mais crítica do sistema — deve funcionar com poucos toques, sem navegação entre páginas, com busca rápida por nome/código.
@@ -170,7 +170,7 @@ Toda alteração de `Saldo` cria `Movimento` na mesma transação. Compra paga �
 | **Descricao** | string | descrição do item exibida no cardápio |
 | PrecoUnitario | decimal | |
 | Estoque | int | 0 = esgotado, some do cardápio |
-| Categoria | enum | `Salgado` \| `Doce` \| `Bebida` \| `Combo` — combo é um item comum com preço e estoque próprios; a composição (ex.: "pão de queijo + suco") fica só na `Descricao` e não baixa o estoque dos componentes |
+| Categoria | enum | `Salgado` \| `Doce` \| `Bebida` (combos foram retirados do escopo) |
 | Alergenos | string | `Gluten,Lactose,Amendoim...` (D3) |
 | Ativo | bool | desativa sem apagar histórico |
 
@@ -377,6 +377,11 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | PUT | `/api/alunos/{id}/restricoes` | Define alergias — D3 |
 | POST | `/api/alunos/{id}/credito` | Responsável adiciona crédito |
 
+### Intervalos
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/intervalos` | Intervalos com horário de início, fim e fechamento dos pedidos (seletor do cardápio) |
+
 ### Itens / Cardápio
 | Método | Rota | Descrição |
 |---|---|---|
@@ -571,7 +576,7 @@ Nenhum dado real — tudo fictício.
 - **1 conta Admin** (única no sistema) para o caixa
 
 - **2 intervalos:** Manhã (09:00–09:20), Tarde (15:30–15:50)
-- **38 itens** com nome, descrição, preço, estoque e alérgenos
+- **34 itens** (12 salgados, 10 doces, 12 bebidas) com nome, descrição, preço, estoque e alérgenos
 - **`DispCardapio`** para os intervalos do dia da demonstração, cobrindo os itens oferecidos
 - **~20 alunos** distribuídos entre **~10 responsáveis**, com `Conta` para cada comprador, incluindo:
   - 1 aluno com saldo positivo

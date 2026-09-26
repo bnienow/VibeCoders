@@ -4,6 +4,5 @@ public enum CategoriaItem
 {
     Salgado,
     Doce,
-    Bebida,
-    Combo
+    Bebida
 }

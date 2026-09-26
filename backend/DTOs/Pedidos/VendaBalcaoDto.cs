@@ -11,6 +11,6 @@ public class VendaBalcaoDto
     // Conta (lança no saldo) ou AVista (pagou na hora)
     public FormaPagamento FormaPagamento { get; set; }
 
-    [MinLength(1)]
+    [MinLength(1, ErrorMessage = "Escolha pelo menos um item.")]
     public List<ItemQuantidadeDto> Itens { get; set; } = [];
 }

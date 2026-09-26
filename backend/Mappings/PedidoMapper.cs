@@ -22,6 +22,7 @@ public static class PedidoMapper
         UsuarioId = pedido.UsuarioId,
         UsuarioNome = pedido.Usuario.Nome,
         Data = pedido.Data,
+        IntervaloId = pedido.IntervaloId,
         Intervalo = pedido.Intervalo?.Nome,
         Status = PedidoService.StatusAtual(pedido),
         TipoVenda = pedido.TipoVenda,

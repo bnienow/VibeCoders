@@ -7,6 +7,6 @@ public class ItemQuantidadeDto
 {
     public int ItemId { get; set; }
 
-    [Range(1, 99)]
+    [Range(1, 99, ErrorMessage = "Quantidade precisa ser entre 1 e 99.")]
     public int Quantidade { get; set; }
 }

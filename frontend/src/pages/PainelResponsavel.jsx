@@ -1,14 +1,32 @@
-import { useCantina } from '../hooks/useCantina';
-import { money } from '../services/cantinaService';
-import { dataLocal } from '../services/catalogo';
-export default function PainelResponsavel({ adultoId = 'adulto-1' }) {
-  const { estado } = useCantina();
-  const filhos = estado.usuarios.filter((u) => u.adultoId === adultoId);
-  const fechamento = estado.fechamentos.find((f) => f.adultoId === adultoId && f.status === 'Aberto');
-  return <><div className="section-head"><span className="eyebrow">Visão da família</span><h1>Acompanhe cada filho</h1><p className="lead">Saldo, consumo e limites reunidos em um lugar.</p></div>
-    {fechamento && <div className="note" style={{marginBottom:20}}>Fechamento de {fechamento.mesReferencia.slice(5)}/{fechamento.mesReferencia.slice(0,4)} em aberto: <strong>{money(fechamento.valorTotal)}</strong>. O valor representa o fiado da família; o consumo é apenas informativo.</div>}
-    <div className="grid-2">{filhos.map((f) => {
-      const gastoMes = estado.movimentos.filter((m) => m.usuarioId === f.id && m.data.slice(0,7) === dataLocal().slice(0,7) && ['Compra','Estorno'].includes(m.tipo)).reduce((n,m) => n - m.valor,0);
-      return <article className="surface pad" key={f.id}><span className="eyebrow">{f.turma}</span><h2 style={{margin:'10px 0'}}>{f.nome}</h2><div className="grid-2"><div><span className="muted small">Saldo atual</span><div className="metric">{money(f.saldo)}</div>{f.saldo < 0 && <span className="badge amber">Fiado: {money(-f.saldo)} de R$ 250,00</span>}</div><div><span className="muted small">Gasto no mês</span><div className="metric">{money(gastoMes)}</div><span className="small muted">Limite diário: {f.limiteDiario == null ? 'não definido' : money(f.limiteDiario)}</span></div></div>{f.saldo < 10 && <div className="alert" style={{marginTop:20}}>Saldo baixo: acompanhe as compras deste aluno.</div>}</article>;
-    })}</div>{!filhos.length && <div className="empty">Nenhum aluno vinculado a este responsável.</div>}</>;
+import { useApi } from '../hooks/useApi';
+import { useAuth } from '../hooks/useAuth';
+import { alunoService } from '../services/alunoService';
+import { fechamentoService } from '../services/fechamentoService';
+import { dataBR, dinheiro } from '../services/formatos';
+
+const SALDO_BAIXO = 10;
+
+export default function PainelResponsavel() {
+  const { usuario } = useAuth();
+  const { dados } = useApi(() => Promise.all([alunoService.filhos(usuario.id), fechamentoService.doAdulto(usuario.id)]), [usuario.id]);
+  const [filhos, fechamentos] = dados ?? [];
+  const fechamento = fechamentos?.find(f => f.status === 'Aberto');
+
+  return <>
+    <div className="section-head"><h1>Família</h1></div>
+    {fechamento && <div className="note" style={{ marginBottom: 20 }}>Fechamento de {dataBR(fechamento.mesReferencia).slice(3)} em aberto: <strong>{dinheiro(fechamento.valorTotal)}</strong></div>}
+
+    <div className="grid-2">{filhos?.map(f => <article className="surface pad" key={f.id}>
+      <div className="between"><h2 style={{ margin: 0 }}>{f.nome}</h2><span className="small muted">{f.turma}</span></div>
+      <div className="divider"/>
+      <div className="line"><span className="muted">Saldo</span><strong>{dinheiro(f.saldo)}</strong></div>
+      <div className="line"><span className="muted">Gasto no mês</span><strong>{dinheiro(f.gastoMes)}</strong></div>
+      <div className="line"><span className="muted">Limite diário</span><strong>{f.limiteDiario == null ? 'Sem limite' : dinheiro(f.limiteDiario)}</strong></div>
+      <div className="row wrap" style={{ marginTop: 12 }}>
+        {f.saldo < 0 && <span className="badge amber">Fiado: {dinheiro(-f.saldo)} de R$ 250,00</span>}
+        {f.saldo < SALDO_BAIXO && <span className="badge red">Saldo baixo</span>}
+      </div>
+    </article>)}</div>
+    {filhos && !filhos.length && <div className="empty">Nenhum filho cadastrado.</div>}
+  </>;
 }

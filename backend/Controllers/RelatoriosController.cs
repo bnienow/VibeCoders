@@ -41,9 +41,10 @@ public class RelatoriosController : ControllerBase
     [HttpGet("vendas/excel")]
     public async Task<IActionResult> VendasExcel(DateOnly? inicio, DateOnly? fim)
     {
-        var planilha = ExcelExportService.Vendas(await VendasPorDia(inicio, fim), await RankingDeItens(inicio, fim));
+        var (de, ate) = Periodo(inicio, fim);
+        var planilha = ExcelExportService.Vendas(de, ate, await VendasPorDia(de, ate), await RankingDeItens(de, ate));
 
-        return File(planilha, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "vendas.xlsx");
+        return File(planilha, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"vendas-{de:yyyy-MM-dd}-a-{ate:yyyy-MM-dd}.xlsx");
     }
 
     private async Task<List<VendaDiaDto>> VendasPorDia(DateOnly? inicio, DateOnly? fim)

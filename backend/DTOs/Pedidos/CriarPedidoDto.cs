@@ -10,6 +10,6 @@ public class CriarPedidoDto
 
     public int IntervaloId { get; set; }
 
-    [MinLength(1)]
+    [MinLength(1, ErrorMessage = "Escolha pelo menos um item.")]
     public List<ItemQuantidadeDto> Itens { get; set; } = [];
 }

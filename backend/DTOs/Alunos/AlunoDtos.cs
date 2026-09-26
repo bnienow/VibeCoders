@@ -22,17 +22,17 @@ public class AlunoDto
 // Cadastro de filho, feito pelo responsável logado
 public class CreateAlunoDto
 {
-    [Required]
+    [Required(ErrorMessage = "Informe o nome completo.")]
     public string Nome { get; set; } = string.Empty;
 
     // Precisa ser do domínio da escola (Aluno.DominioEmail)
-    [Required, EmailAddress]
+    [Required(ErrorMessage = "Informe o e-mail."), EmailAddress(ErrorMessage = "E-mail inválido.")]
     public string Email { get; set; } = string.Empty;
 
-    [Required, MinLength(6)]
+    [Required(ErrorMessage = "Informe a senha."), MinLength(6, ErrorMessage = "A senha precisa ter pelo menos 6 caracteres.")]
     public string Senha { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "Informe a turma.")]
     public string Turma { get; set; } = string.Empty;
 
     public DateOnly DataNascimento { get; set; }
@@ -43,7 +43,7 @@ public class CreateAlunoDto
 public class LimiteDto
 {
     // Nulo = sem limite
-    [Range(0.01, 9999)]
+    [Range(0.01, 9999, ErrorMessage = "O limite precisa ser maior que zero.")]
     public decimal? LimiteDiario { get; set; }
 }
 
@@ -54,7 +54,7 @@ public class RestricoesDto
 
 public class CreditoDto
 {
-    [Range(1, 1000)]
+    [Range(1, 1000, ErrorMessage = "O crédito precisa ser entre R$ 1,00 e R$ 1.000,00.")]
     public decimal Valor { get; set; }
 
     public int? MetodoPagamentoId { get; set; }

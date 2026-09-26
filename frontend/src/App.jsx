@@ -4,7 +4,6 @@ import Tema from './components/Tema';
 import CadastroAdulto from './pages/CadastroAdulto';
 import CadastroAluno from './pages/CadastroAluno';
 import Cardapio from './pages/Cardapio';
-import Catalogo from './pages/Catalogo';
 import ExtratoFilho from './pages/ExtratoFilho';
 import FechamentoMensal from './pages/FechamentoMensal';
 import GestaoFilhos from './pages/GestaoFilhos';
@@ -28,7 +27,6 @@ export default function App() {
       {/* Públicas */}
       <Route path="/login" element={<Login />} />
       <Route path="/cadastro-adulto" element={<CadastroAdulto />} />
-      <Route path="/cadastro-aluno" element={<CadastroAluno />} />
 
       {/* Aluno */}
       <Route element={<Estrutura permissoes={['Aluno']} />}>
@@ -37,7 +35,6 @@ export default function App() {
         <Route path="/revisao" element={<RevisaoPedido />} />
         <Route path="/historico" element={<Historico />} />
         <Route path="/extrato" element={<MeuExtrato />} />
-        <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/perfil" element={<Perfil />} />
       </Route>
 
@@ -48,6 +45,7 @@ export default function App() {
         <Route path="/responsavel/extrato" element={<ExtratoFilho />} />
         <Route path="/responsavel/fechamento" element={<FechamentoMensal />} />
         <Route path="/responsavel/pagamentos" element={<MetodosPagamento />} />
+        <Route path="/responsavel/cadastrar-filho" element={<CadastroAluno />} />
       </Route>
 
       {/* Cantina (Admin) */}

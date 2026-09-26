@@ -1,30 +1,91 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Feedback from '../components/Feedback';
 import Quantidade from '../components/Quantidade';
-import { useCantina } from '../hooks/useCantina';
-import { money } from '../services/cantinaService';
-import { dataLocal } from '../services/catalogo';
+import { useApi } from '../hooks/useApi';
+import { alunoService } from '../services/alunoService';
+import { CATEGORIAS, dinheiro } from '../services/formatos';
+import { itemService } from '../services/itemService';
+import { pedidoService } from '../services/pedidoService';
+
+const TETO_FIADO = -250;
+
 export default function PdvBalcao() {
-  const { estado, service } = useCantina();
-  const [category, setCategory] = useState('Salgados'), [quantities, setQuantities] = useState({}), [query, setQuery] = useState(''), [userId, setUserId] = useState(''), [feedback, setFeedback] = useState({});
-  const items = estado.itens.filter((i) => i.ativo && i.estoque > 0 && i.categoria !== 'Combos');
-  const filtered = items.filter((i) => i.categoria === category), users = estado.usuarios.filter((u) => ['Aluno','Adulto'].includes(u.papel) && (u.nome + ' ' + u.email).toLowerCase().includes(query.toLowerCase())).slice(0,8);
-  const selected = estado.usuarios.find((u) => u.id === userId);
-  const lines = items.filter((i) => quantities[i.id]), total = useMemo(() => lines.reduce((n,i) => n + i.preco * quantities[i.id],0), [lines, quantities]);
-  const spentToday = estado.pedidos.filter((p) => p.usuarioId === selected?.id && p.data === dataLocal() && p.status !== 'Cancelado').reduce((n,p) => n + p.total,0);
-  const dailyBlocked = selected?.papel === 'Aluno' && selected.limiteDiario != null && spentToday + total > selected.limiteDiario;
-  const blocked = selected?.papel === 'Aluno' && selected.saldo - total < -250;
-  const allergy = lines.flatMap((i) => i.alergenos.filter((a) => selected?.restricoes?.some((r) => r.toLowerCase() === a.toLowerCase())));
-  function change(id, n) { setQuantities((q) => ({...q, [id]:n})); }
-  function finish(forma) {
-    try { const p = service.venderBalcao(userId, quantities, forma); setQuantities({}); setQuery(''); setUserId(''); setFeedback({ sucesso: 'Venda de balcão ' + p.id + ' registrada como Entregue. ' + money(p.total) }); }
-    catch(e) { setFeedback({ erro:e.message }); }
+  // Sem intervalo: tudo que está ativo e com estoque (o balcão nunca fecha)
+  const { dados: itens, recarregar: recarregarItens } = useApi(() => itemService.cardapio(), []);
+  const [categoria, setCategoria] = useState('Salgado'), [quantidades, setQuantidades] = useState({});
+  const [busca, setBusca] = useState(''), [aluno, setAluno] = useState(null), [feedback, setFeedback] = useState({});
+
+  // Busca o comprador na API a partir de 2 letras (enquanto nenhum estiver escolhido)
+  const { dados: encontrados } = useApi(() => busca.length >= 2 && !aluno ? alunoService.buscar(busca) : Promise.resolve([]), [busca, aluno]);
+
+  const linhas = (itens ?? []).filter(i => quantidades[i.id]);
+  const total = linhas.reduce((soma, i) => soma + i.precoUnitario * quantidades[i.id], 0);
+  const teto = aluno && aluno.saldo - total < TETO_FIADO;
+  const alergia = [...new Set(linhas.flatMap(i => i.alergenos.filter(a => aluno?.restricoes.includes(a))))];
+
+  const mudar = (id, n) => setQuantidades(q => ({ ...q, [id]: n }));
+
+  async function finalizar(formaPagamento) {
+    try {
+      const pedido = await pedidoService.venderNoBalcao({
+        usuarioId: aluno.id,
+        formaPagamento,
+        itens: linhas.map(i => ({ itemId: i.id, quantidade: quantidades[i.id] })),
+      });
+      setQuantidades({}); setBusca(''); setAluno(null);
+      setFeedback({ sucesso: `Venda ${pedido.codigoRetirada} registrada: ${dinheiro(pedido.total)} ${formaPagamento === 'Conta' ? 'na conta' : 'à vista'}.` });
+      recarregarItens();
+    } catch (e) {
+      setFeedback({ erro: e.message });
+    }
   }
-  return <><div className="section-head"><span className="eyebrow">Atendimento rápido</span><h1>PDV de balcão</h1><p className="lead">Venda vinculada a uma pessoa e entregue no ato, independente do horário do intervalo.</p></div><Feedback {...feedback}/>
-    <div className="two-column" style={{marginTop:20}}><section><div className="pill-tabs" style={{marginBottom:16}}>{['Salgados','Doces','Bebidas'].map((v) => <button key={v} aria-pressed={category===v} onClick={() => setCategory(v)}>{v}</button>)}</div><div className="grid-3">{filtered.map((i) => <button key={i.id} type="button" className="surface pad" style={{textAlign:'left',minHeight:106}} onClick={() => change(i.id, Math.min(i.estoque, (quantities[i.id] || 0)+1))}><strong>{i.nome}</strong><div className="price" style={{marginTop:9}}>{money(i.preco)}</div><span className="small muted">Toque para adicionar · estoque {i.estoque}</span></button>)}</div></section>
-      <aside className="surface pad sticky-panel"><h2>Atendimento atual</h2><label className="field">Buscar usuário por nome ou e-mail<input className="input" type="search" value={query} onChange={(e) => { setQuery(e.target.value); setUserId(''); }} placeholder="Quem está comprando?"/></label>{query && <div className="stack" style={{gap:5,marginTop:10}}>{users.map((u) => <button key={u.id} className="btn secondary full" onClick={() => { setUserId(u.id); setQuery(u.nome); }}>{u.nome} · {u.email}</button>)}{!users.length && <span className="muted small">Nenhum usuário encontrado.</span>}</div>}
-        {selected && <div className="note" style={{marginTop:15}}><strong>{selected.nome}</strong><div className="small">Saldo {money(selected.saldo)} · limite diário {selected.limiteDiario == null ? '—' : money(selected.limiteDiario)}</div><div className="small">Restrições: {selected.restricoes?.join(', ') || 'nenhuma'}</div></div>}
-        <div className="divider"/>{lines.map((i) => <div className="line" key={i.id}><div><strong>{i.nome}</strong><div className="small muted">{money(i.preco)} por unidade</div></div><Quantidade nome={i.nome} valor={quantities[i.id]} maximo={i.estoque} aoMudar={(n) => change(i.id,n)}/></div>)}{!lines.length && <p className="muted">Toque nos itens para montar a venda.</p>}
-        <div className="between" style={{margin:'20px 0'}}><strong>Total</strong><strong className="metric">{money(total)}</strong></div>{allergy.length > 0 && <div className="alert">Alergia: contém {Array.from(new Set(allergy)).join(', ')}.</div>}{dailyBlocked && <div className="alert" style={{marginTop:10}}>Limite diário de {money(selected.limiteDiario)} atingido</div>}{blocked && <div className="alert" style={{marginTop:10}}>Limite de R$ 250,00 atingido — somente à vista</div>}
-        <div className="grid-2" style={{marginTop:15,gap:8}}><button className="btn full" disabled={!selected || !lines.length || blocked || dailyBlocked} onClick={() => finish('Conta')}>Lançar na conta</button><button className="btn secondary full" disabled={!selected || !lines.length} onClick={() => finish('AVista')}>Pagou à vista</button></div></aside></div></>;
+
+  return <>
+    <div className="section-head"><h1>Balcão</h1></div>
+    <Feedback {...feedback}/>
+
+    <div className="two-column" style={{ marginTop: 16 }}>
+      <section>
+        <div className="pill-tabs" style={{ marginBottom: 14 }}>{Object.entries(CATEGORIAS).map(([valor, titulo]) => <button key={valor} aria-pressed={categoria === valor} onClick={() => setCategoria(valor)}>{titulo}</button>)}</div>
+        <div className="cards">{(itens ?? []).filter(i => i.categoria === categoria).map(i =>
+          <button key={i.id} type="button" className={`surface pad tile ${quantidades[i.id] ? 'product chosen' : ''}`} onClick={() => mudar(i.id, Math.min(i.estoque, (quantidades[i.id] || 0) + 1))}>
+            <strong>{i.nome}</strong>
+            <span className="price">{dinheiro(i.precoUnitario)}</span>
+            <span className="small muted">Estoque {i.estoque}{quantidades[i.id] ? ` · no pedido: ${quantidades[i.id]}` : ''}</span>
+          </button>)}
+        </div>
+      </section>
+
+      <aside className="surface pad sticky-panel stack">
+        <label className="field">Comprador (nome ou e-mail)
+          <input className="input" type="search" value={busca} onChange={e => { setBusca(e.target.value); setAluno(null); }}/>
+        </label>
+        {busca.length >= 2 && !aluno && <div className="stack" style={{ gap: 6 }}>
+          {encontrados?.map(a => <button key={a.id} className="btn secondary full small" onClick={() => { setAluno(a); setBusca(a.nome); }}>{a.nome} · {a.email}</button>)}
+          {encontrados && !encontrados.length && <span className="small muted">Nenhum aluno encontrado.</span>}
+        </div>}
+        {aluno && <div className="note">
+          <strong>{aluno.nome}</strong>
+          <div className="small">Saldo {dinheiro(aluno.saldo)} · limite diário {aluno.limiteDiario == null ? '—' : dinheiro(aluno.limiteDiario)}</div>
+          <div className="small">Restrições: {aluno.restricoes.join(', ') || 'nenhuma'}</div>
+        </div>}
+
+        <div>
+          {linhas.map(i => <div className="line" key={i.id}>
+            <div><strong>{i.nome}</strong><div className="small muted">{dinheiro(i.precoUnitario)} cada</div></div>
+            <Quantidade nome={i.nome} valor={quantidades[i.id]} maximo={i.estoque} aoMudar={n => mudar(i.id, n)}/>
+          </div>)}
+          {!linhas.length && <span className="small muted">Nenhum item no pedido.</span>}
+        </div>
+
+        <div className="between"><strong>Total</strong><strong className="metric">{dinheiro(total)}</strong></div>
+        {alergia.length > 0 && <div className="alert">Alergia: contém {alergia.join(', ')}.</div>}
+        {teto && <div className="alert">Limite de R$ 250,00 atingido — somente à vista</div>}
+        <div className="grid-2" style={{ gap: 8 }}>
+          <button className="btn full" disabled={!aluno || !linhas.length || teto} onClick={() => finalizar('Conta')}>Lançar na conta</button>
+          <button className="btn secondary full" disabled={!aluno || !linhas.length} onClick={() => finalizar('AVista')}>Pagou à vista</button>
+        </div>
+      </aside>
+    </div>
+  </>;
 }
