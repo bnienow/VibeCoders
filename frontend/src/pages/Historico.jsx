@@ -1,34 +1,19 @@
 import { useState } from 'react';
-import Estrutura from '../components/Estrutura';
+import Layout from '../components/Layout';
+import Feedback from '../components/Feedback';
+import Quantidade from '../components/Quantidade';
 import { useCantina } from '../hooks/useCantina';
-import { dataLocal, dinheiro, intervaloAberto, intervalos } from '../services/catalogo';
-
-export default function Historico({ navigate, aviso }) {
-  const { usuario, estado, service } = useCantina();
-  const [filtro, setFiltro] = useState('todos'), [selecionado, setSelecionado] = useState(null), [mensagem, setMensagem] = useState(aviso || '');
-  const pedidos = estado.pedidos.filter(pedido => pedido.usuarioId === usuario.id && (filtro === 'mes' ? pedido.data.slice(0,7) === dataLocal().slice(0,7) : filtro === 'hoje' ? pedido.data === dataLocal() : true));
-  const consumido = pedidos.filter(pedido => pedido.status !== 'Cancelado').reduce((soma,pedido) => soma + pedido.total,0);
-  function cancelar(id) {
-    try { service.cancelarPedido(id); setMensagem('Pedido cancelado e valor da conta estornado, quando aplicável.'); }
-    catch (falha) { setMensagem(falha.message); }
-  }
-  return <Estrutura pagina="/historico" navigate={navigate}><div className="container section">
-    <span className="eyebrow">Seus pedidos</span><div className="between wrap"><div><h1>Tudo o que você já pediu</h1><p className="muted">Consulte valores, itens e o status de cada compra feita na cantina.</p></div><div className="row no-print"><select className="input" aria-label="Filtrar pedidos" value={filtro} onChange={e=>setFiltro(e.target.value)}><option value="todos">Todos os pedidos</option><option value="mes">Este mês</option><option value="hoje">Hoje</option></select><button className="btn secondary" onClick={() => window.print()}>Imprimir / salvar PDF</button></div></div>
-    {mensagem && <div className="success" role="status" style={{marginTop:20}}>{mensagem} <button className="text-button" onClick={() => setMensagem('')}>Fechar</button></div>}
-    <div className="grid-3" style={{marginTop:24}}><article className="surface pad"><strong>{pedidos.length}</strong><p className="muted small">pedidos no filtro</p></article><article className="surface pad"><strong>{dinheiro(consumido)}</strong><p className="muted small">total dos pedidos</p></article><article className="surface pad"><strong>{dinheiro(usuario.saldo)}</strong><p className="muted small">saldo atual</p></article></div>
-    <div style={{marginTop:26}}>{!pedidos.length && <div className="surface pad">Nenhum pedido encontrado. <button className="text-button" onClick={() => navigate('/cardapio')}>Ver cardápio</button></div>}
-      {pedidos.map(pedido => <article className="surface history-row" key={pedido.id}>
-        <div><strong>#{pedido.id}</strong><div className="muted small">{new Date(`${pedido.data}T12:00:00`).toLocaleDateString('pt-BR')} • {intervalos[pedido.intervalo]?.nome || 'Balcão'}</div></div>
-        <div className="small">{pedido.itens.map(item => `${item.quantidade}× ${item.nome}`).join(' • ')}</div>
-        <span className={`badge ${pedido.status === 'Cancelado' ? 'red' : ''}`}>{pedido.status}</span>
-        <div className="right"><strong>{dinheiro(pedido.total)}</strong><div><button className="text-button" onClick={() => setSelecionado(selecionado === pedido.id ? null : pedido.id)}>Detalhes</button></div></div>
-        {selecionado === pedido.id && <div style={{gridColumn:'1 / -1',borderTop:'1px solid #eaded0',paddingTop:15}}>
-          {pedido.status === 'Confirmado' && <p className="green strong">Código para retirada: <span style={{fontSize:24}}>{pedido.codigoRetirada}</span></p>}
-          {pedido.itens.map(item => <p className="between small" key={item.id}><span>{item.quantidade}× {item.nome} • {dinheiro(item.preco)} cada</span><strong>{dinheiro(item.quantidade*item.preco)}</strong></p>)}
-          <p className="muted small">Pagamento: {pedido.formaPagamento === 'Conta' ? 'Conta' : 'À vista'}</p>
-          {pedido.status === 'Confirmado' && intervaloAberto(pedido.intervalo,pedido.data) && <button className="btn soft no-print" onClick={() => cancelar(pedido.id)}>Cancelar pedido</button>}
-        </div>}
-      </article>)}
-    </div>
-  </div></Estrutura>;
+import { intervaloAberto, dataLocal } from '../services/catalogo';
+import { displayDate, disponivelNoIntervalo, money, statusPedido } from '../services/cantinaService';
+export default function Historico() {
+  const { estado, usuario, service } = useCantina(), aluno = usuario?.papel === 'Aluno' ? usuario : estado.usuarios.find((u) => u.id === 'aluno-1');
+  const [filtro,setFiltro] = useState('Todos'), [editing,setEditing] = useState(null), [quantities,setQuantities] = useState({}), [feedback,setFeedback] = useState({});
+  const pedidos = estado.pedidos.filter((p) => p.usuarioId === aluno?.id && (filtro==='Todos' || (filtro==='Hoje' && p.data===dataLocal()) || (filtro==='Mês' && p.data.slice(0,7)===dataLocal().slice(0,7))));
+  function begin(p) { setEditing(p.id); setQuantities(Object.fromEntries(p.itens.map((i) => [i.itemId,i.quantidade]))); setFeedback({}); }
+  function run(fn,message) { try { fn(); setEditing(null); setFeedback({ sucesso:message }); } catch(e) { setFeedback({ erro:e.message }); } }
+  return <Layout perfil="Aluno" nome={aluno?.nome} saldo={aluno?.saldo}><div className="section-head"><span className="eyebrow">Acompanhamento</span><h1>Meus pedidos</h1><p className="lead">Acompanhe a retirada e altere pedidos Abertos enquanto o prazo permitir.</p></div><Feedback {...feedback}/><div className="pill-tabs" style={{margin:'20px 0'}}>{['Todos','Hoje','Mês'].map((v) => <button key={v} aria-pressed={filtro===v} onClick={() => setFiltro(v)}>{v}</button>)}</div>
+    <div className="stack">{pedidos.map((p) => { const status=statusPedido(p), canEdit=p.status==='Aberto' && intervaloAberto(p.intervalo,p.data); return <article className="surface pad" key={p.id}><div className="between wrap"><div><span className="eyebrow">{displayDate(p.data)} · {p.intervalo || 'Balcão'}</span><h2 style={{margin:'8px 0'}}>Pedido {p.id}</h2><span className={'badge '+(status==='Cancelado'?'red':status==='Confirmado'?'amber':'')}>{status}</span></div><div className="right"><span className="muted small">Total</span><div className="metric">{money(p.total)}</div>{status==='Confirmado' && <div className="badge">Código de retirada: {p.codigoRetirada}</div>}</div></div><div className="divider"/>
+      {p.itens.map((i) => <div className="line" key={i.itemId}><span>{i.quantidade} × {i.nome}</span><span>{money(i.subtotal)}</span></div>)}
+      {canEdit && <div className="row wrap no-print" style={{marginTop:20}}><button className="btn secondary" onClick={() => begin(p)}>Alterar</button><button className="btn danger" onClick={() => run(() => service.cancelarPedido(p.id),'Pedido cancelado e estoque restituído.')}>Cancelar</button></div>}
+      {editing===p.id && <div className="surface pad" style={{marginTop:18,background:'#f8fbf8'}}><h3>Alterar itens</h3><p className="hint">A diferença de valor será lançada ou estornada na conta.</p>{estado.itens.filter((i) => disponivelNoIntervalo(estado,i,p.intervalo,p.data) && i.categoria!=='Combos').map((i) => <div className="line" key={i.id}><span>{i.nome} · {money(i.preco)}</span><Quantidade nome={i.nome} valor={quantities[i.id] || 0} maximo={i.estoque+(p.itens.find((l) => l.itemId===i.id)?.quantidade || 0)} aoMudar={(n) => setQuantities({...quantities,[i.id]:n})}/></div>)}<div className="row" style={{marginTop:15}}><button className="btn" onClick={() => run(() => service.alterarPedido(p.id,quantities),'Pedido alterado.')}>Salvar alterações</button><button className="btn secondary" onClick={() => setEditing(null)}>Fechar</button></div></div>}</article>; })}{!pedidos.length && <div className="empty">Nenhum pedido no período.</div>}</div></Layout>;
 }
