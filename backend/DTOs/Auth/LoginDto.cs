@@ -4,7 +4,7 @@ namespace Backend.DTOs.Auth;
 
 public class LoginDto
 {
-    [Required, EmailAddress]
+    [Required]
     public string Email { get; set; } = string.Empty;
 
     [Required]

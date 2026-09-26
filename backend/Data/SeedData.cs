@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Backend.Models;
 using Backend.Models.Enums;
+using Backend.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,6 @@ public static class SeedData
 {
     private const string SenhaAdmin = "admin123";
     private const string SenhaPadrao = "senha123";
-    private const string DominioAluno = "aluno.cantina.test";
     private const string DominioAdulto = "email.test";
     private const int DiasDeCardapio = 7;
 
@@ -192,7 +192,7 @@ public static class SeedData
     private static Aluno CriarAluno(IPasswordHasher<Usuario> hasher, AlunoSeed seed, Adulto responsavel,
         DateOnly hoje, DateTime agora) => new()
     {
-        Usuario = CriarUsuario(hasher, seed.Nome, $"{Slug(seed.Nome)}@{DominioAluno}", Permissao.Aluno, SenhaPadrao, agora),
+        Usuario = CriarUsuario(hasher, seed.Nome, $"{Slug(seed.Nome)}@{Aluno.DominioEmail}", Permissao.Aluno, SenhaPadrao, agora),
         Adulto = responsavel,
         Turma = seed.Turma,
         DataNascimento = hoje.AddYears(-seed.Idade).AddDays(-Rnd.Next(0, 300)),
@@ -273,7 +273,7 @@ public static class SeedData
 
     private static List<(Item Item, int Quantidade)> EscolherItens(List<Item> itens, string restricoes, decimal? limite)
     {
-        var permitidos = itens.Where(i => i.Estoque > 0 && !TemConflito(i.Alergenos, restricoes)).ToList();
+        var permitidos = itens.Where(i => i.Estoque > 0 && !Alergia.TemConflito(i.Alergenos, restricoes)).ToList();
         var escolhidos = permitidos.OrderBy(_ => Rnd.Next()).Take(Rnd.Next(1, 4))
             .Select(i => (Item: i, Quantidade: Rnd.NextDouble() < 0.8 ? 1 : 2))
             .ToList();
@@ -306,7 +306,7 @@ public static class SeedData
             FormaPagamento = forma,
             Total = itensPedido.Sum(ip => ip.Subtotal),
             CodigoRetirada = NovoCodigo(dia, codigos),
-            TemAlertaAlergia = escolhidos.Any(e => TemConflito(e.Item.Alergenos, aluno.RestricoesAlimentares)),
+            TemAlertaAlergia = escolhidos.Any(e => Alergia.TemConflito(e.Item.Alergenos, aluno.RestricoesAlimentares)),
             CriadoEm = dia.ToDateTime(intervalo.HoraInicio).AddMinutes(-Rnd.Next(20, 120)),
             Itens = itensPedido,
         };
@@ -346,11 +346,6 @@ public static class SeedData
 
     private static decimal TotalNaConta(IEnumerable<Pedido> pedidos) =>
         pedidos.Where(p => p.FormaPagamento == FormaPagamento.Conta).Sum(p => p.Total);
-
-    private static bool TemConflito(string alergenos, string restricoes) =>
-        restricoes.Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Intersect(alergenos.Split(',', StringSplitOptions.RemoveEmptyEntries))
-            .Any();
 
     // Código curto sem caracteres ambíguos (0/O, 1/I), único por dia
     private static string NovoCodigo(DateOnly dia, Dictionary<DateOnly, HashSet<string>> codigos)

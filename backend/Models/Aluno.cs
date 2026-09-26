@@ -2,6 +2,9 @@ namespace Backend.Models;
 
 public class Aluno
 {
+    // Todo aluno tem e-mail do domínio da escola (fictício)
+    public const string DominioEmail = "aluno.cantina.test";
+
     public int UsuarioId { get; set; }
     public int AdultoId { get; set; }
     public string Turma { get; set; } = string.Empty;
