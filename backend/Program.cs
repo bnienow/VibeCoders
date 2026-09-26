@@ -1,15 +1,22 @@
+using System.Text.Json.Serialization;
+using Backend.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+//Conexão com o banco
+builder.Services.AddDbContext<AppDbContext>(o =>
+    o.UseMySql(builder.Configuration.GetConnectionString("DefaultConnection"),
+               new MySqlServerVersion(new Version(8, 0, 36))));
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+//API envia e recebe os ENUMS pelo nome
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
