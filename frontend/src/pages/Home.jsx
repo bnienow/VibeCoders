@@ -7,7 +7,7 @@ export default function Home() {
   const { usuario } = useAuth();
   const { estado } = useCantina();
   const pendente = estado.pedidos.find(pedido => pedido.usuarioId === usuario.id && pedido.status === 'Confirmado');
-  return <div className="container section">
+  return <div className="section">
     <section className="hero-panel"><div>
       <span className="badge">☀ Bom dia, {usuario.nome.split(' ')[0]}!</span>
       <h1 style={{marginTop:18}}>Seu intervalo merece um lanche caprichado.</h1>

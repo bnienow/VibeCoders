@@ -1,32 +1,31 @@
-import { Link, Navigate, NavLink, Outlet } from 'react-router-dom';
-import { dinheiro } from '../services/catalogo';
+import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import Footer from './Footer';
 import { useAuth } from '../hooks/useAuth';
+import { MENU, PAGINA_INICIAL } from '../rotas';
 
-const links = [['Home', '/home'], ['Cardápio', '/cardapio'], ['Histórico', '/historico'], ['Catálogo', '/catalogo']];
+// Layout da área logada. Sem sessão → login; logado em outro perfil → página inicial dele.
+// Com acesso: cabeçalho com o menu do perfil + página (Outlet) + rodapé.
+// NavLink marca o link da página atual com a classe "active" ("end" = só o endereço exato).
+export default function Estrutura({ permissoes }) {
+  const { usuario, carregando, sair } = useAuth();
+  const navigate = useNavigate();
 
-export function Rodape() {
-  return <footer className="site-footer"><div className="container footer-grid">
-    <div><strong>Cantina do Pátio</strong><p>Comida gostosa, cuidado de verdade e mais energia para aprender.</p></div>
-    <div><strong>Fale com a cantina</strong><p>Atendimento no pátio central • Bloco B</p></div>
-    <div><strong>Horários</strong><p>Seg–Sex • 7h às 17h30</p></div>
-  </div></footer>;
-}
-
-// Layout da área logada: sem usuário, manda para o login; com usuário, cabeçalho + página (Outlet) + rodapé.
-// NavLink marca sozinho o link da página atual com a classe "active".
-export default function Estrutura() {
-  const { usuario, carregando } = useAuth();
   if (carregando) return null; // ainda perguntando à API se há sessão
   if (!usuario) return <Navigate to="/login" replace />;
+  if (!permissoes.includes(usuario.permissao)) return <Navigate to={PAGINA_INICIAL[usuario.permissao]} replace />;
 
-  return <div className="page-shell">
-    <header className="site-header"><div className="container header-inner">
-      <Link className="brand" to="/home"><span className="brand-mark">♜</span><span>Cantina<small>DO PÁTIO</small></span></Link>
-      <div className="header-person"><strong>{usuario.nome}</strong><span>{usuario.permissao}</span></div>
-      <nav className="site-nav" aria-label="Navegação principal">{links.map(([texto, rota]) => <NavLink key={rota} to={rota}>{texto}</NavLink>)}</nav>
-      {usuario.saldo != null && <Link className="balance-pill" to="/perfil" title="Ver meu saldo">◧ {dinheiro(usuario.saldo)}</Link>}
-      <Link className="btn secondary" style={{padding:'7px 10px',minHeight:33}} to="/perfil" aria-label="Abrir perfil">♙</Link>
+  async function encerrarSessao() {
+    await sair();
+    navigate('/login');
+  }
+
+  return <div className="shell">
+    <header className="page-header"><div className="container header-inner">
+      <div className="row"><Link className="logo" to={PAGINA_INICIAL[usuario.permissao]}>Cantina<span> do Pátio</span></Link><span className="role">{usuario.permissao}</span></div>
+      <nav className="site-nav" aria-label="Navegação principal">{MENU[usuario.permissao].map(([texto, rota]) => <NavLink key={rota} to={rota} end>{texto}</NavLink>)}</nav>
+      <div className="header-actions"><strong className="small">{usuario.nome}</strong><button type="button" className="btn secondary" onClick={encerrarSessao}>Sair</button></div>
     </div></header>
-    <main style={{flex:1}}><Outlet /></main><Rodape />
+    <main className="main"><div className="container"><Outlet /></div></main>
+    <Footer />
   </div>;
 }

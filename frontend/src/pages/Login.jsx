@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { PAGINA_INICIAL } from '../rotas';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -9,7 +10,7 @@ export default function Login() {
   const [mostrar, setMostrar] = useState(false), [erro, setErro] = useState(''), [ocupado, setOcupado] = useState(false);
   async function enviar(evento) {
     evento.preventDefault(); setErro(''); setOcupado(true);
-    try { const usuario = await entrar(email, senha); navigate(usuario.permissao === 'Adulto' ? '/cadastro-aluno' : '/home'); }
+    try { const usuario = await entrar(email, senha); navigate(PAGINA_INICIAL[usuario.permissao]); }
     catch (falha) { setErro(falha.message); } finally { setOcupado(false); }
   }
   return <main className="auth-page"><section className="surface auth-card">

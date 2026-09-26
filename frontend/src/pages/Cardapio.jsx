@@ -23,7 +23,7 @@ export default function Cardapio() {
     if (!itensCarrinho.length) { setErro('Selecione pelo menos um item.'); return; }
     navigate('/revisao');
   }
-  return <div className="container section">
+  return <div className="section">
     <span className="eyebrow">Cardápio de hoje</span><div className="between wrap"><div><h1>Escolha o que vai deixar seu intervalo melhor</h1><p className="muted">Ajuste as quantidades. Você confere tudo antes de finalizar.</p></div><span className="badge">{itensCarrinho.reduce((soma,item) => soma + item.quantidade,0)} itens selecionados</span></div>
     <div className="surface pad grid-2" style={{marginTop:20}}>
       <label className="field">Intervalo para retirada<select className="input" value={estado.intervalo} onChange={e => service.escolherIntervalo(e.target.value)}>{Object.entries(intervalos).map(([chave, intervalo]) => <option key={chave} value={chave}>{intervalo.nome} • {intervalo.inicio}</option>)}</select></label>
@@ -33,7 +33,7 @@ export default function Cardapio() {
     </div>
     {categorias.map(categoria => { const grupo = itens.filter(item => item.categoria === categoria); if (!grupo.length) return null;
       return <section className="surface category" key={categoria}><div className="between category-heading"><h2 style={{margin:0}}>{categoria}</h2><span className="muted small">{grupo.length} opções</span></div><div className="product-grid">{grupo.map(item => { const quantidade = estado.carrinho[item.id] || 0, conflito = alergia(item);
-        return <article className={`product ${quantidade?'chosen':''}`} key={item.id}><div className="between"><h3>{item.nome}</h3><Quantidade nome={item.nome} valor={quantidade} maximo={item.estoque} aoAlterar={valor => service.definirQuantidade(item.id,valor)} /></div><p>{item.descricao}</p>{conflito && <span className="badge red">Contém {conflito}</span>}<div className="product-price">{dinheiro(item.preco)}</div></article>;
+        return <article className={`product ${quantidade?'chosen':''}`} key={item.id}><div className="between"><h3>{item.nome}</h3><Quantidade nome={item.nome} valor={quantidade} maximo={item.estoque} aoMudar={valor => service.definirQuantidade(item.id,valor)} /></div><p>{item.descricao}</p>{conflito && <span className="badge red">Contém {conflito}</span>}<div className="product-price">{dinheiro(item.preco)}</div></article>;
       })}</div></section>;
     })}
     {!itens.length && <div className="surface pad">Nenhum item disponível para essa busca.</div>}

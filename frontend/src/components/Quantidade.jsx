@@ -1,7 +1,3 @@
-export default function Quantidade({ nome, valor, maximo, aoAlterar }) {
-  return <span className="quantity" role="group" aria-label={`Quantidade de ${nome}`}>
-    <button type="button" aria-label={`Diminuir ${nome}`} disabled={valor === 0} onClick={() => aoAlterar(valor - 1)}>−</button>
-    <output aria-live="polite">{valor}</output>
-    <button type="button" aria-label={`Aumentar ${nome}`} disabled={valor >= maximo} onClick={() => aoAlterar(valor + 1)}>+</button>
-  </span>;
+export default function Quantidade({ nome, valor = 0, maximo = Infinity, aoMudar }) {
+  return <div className="quantity" aria-label={'Quantidade de ' + nome}><button type="button" disabled={valor <= 0} aria-label={'Diminuir ' + nome} onClick={() => aoMudar(Math.max(0, valor - 1))}>−</button><output aria-live="polite">{valor}</output><button type="button" disabled={valor >= maximo} aria-label={'Aumentar ' + nome} onClick={() => aoMudar(Math.min(maximo, valor + 1))}>+</button></div>;
 }

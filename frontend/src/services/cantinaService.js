@@ -1,166 +1,189 @@
-import { catalogoInicial, dataDeslocada, dataLocal, intervaloAberto } from './catalogo';
+import { catalogoInicial, dataLocal, intervaloAberto, intervalos } from './catalogo';
 
-const CHAVE = 'cantina-do-patio-prototipo-v1';
-const HASH_SENHA_DEMO = '55a5e9e78207b4df8699d60886fa070079463547b095d1a05bc719bb4e6cd251';
-// Senha das contas fictícias: senha123. Este serviço é um protótipo local.
-// Para integrar o backend, substitua suas operações por fetch('/api/...').
-const ouvintes = new Set();
-
-function inicial() {
-  return {
-    usuarios: [
-      { id: 'adulto-demo', papel: 'Adulto', nome: 'Carla Andrade', email: 'carla@email.test', senhaHash: HASH_SENHA_DEMO, cpf: '12345678909', telefone: '11998765432', saldo: 0 },
-      { id: 'aluno-demo', papel: 'Aluno', adultoId: 'adulto-demo', nome: 'Marina Andrade', email: 'marina@aluno.cantina.test', senhaHash: HASH_SENHA_DEMO, turma: '8º ano', nascimento: '2012-04-12', restricoes: '', limiteDiario: null, saldo: 42.5, avisos: true },
-    ],
-    sessaoId: null, carrinho: {}, intervalo: 'manha', itens: catalogoInicial,
-    pedidos: [{ id: 'CP-1037', usuarioId: 'aluno-demo', data: dataDeslocada(-1), intervalo: 'manha', status: 'Entregue', formaPagamento: 'Conta', codigoRetirada: 'A7K2', itens: [{ id: 1, nome: 'Pão de queijo', quantidade: 1, preco: 4.5 }, { id: 25, nome: 'Suco de laranja', quantidade: 1, preco: 6 }], total: 10.5 }],
-    movimentos: [{ id: 'mov-demo', usuarioId: 'aluno-demo', data: dataDeslocada(-1), tipo: 'Compra', descricao: 'Pedido CP-1037', valor: -10.5, saldoApos: 42.5 }],
-  };
+const KEY = 'vibecoders-ui-demo-v3';
+const listeners = new Set();
+const round = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const uid = () => globalThis.crypto?.randomUUID?.() || String(Date.now() + Math.random());
+const copy = (v) => structuredClone(v);
+const currentMonth = () => dataLocal().slice(0, 7);
+const previousMonth = () => {
+  const d = new Date(); d.setMonth(d.getMonth() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+};
+const seed = () => ({
+  usuarios: [
+    { id: 'adulto-1', papel: 'Adulto', nome: 'Carla Andrade', email: 'carla@exemplo.test', cpf: '00000000000', telefone: '51999990000', saldo: 0 },
+    { id: 'aluno-1', papel: 'Aluno', adultoId: 'adulto-1', nome: 'Marina Andrade', email: 'marina@aluno.cantina.test', turma: '8º ano', nascimento: '2012-04-12', restricoes: ['Lactose'], limiteDiario: 30, saldo: 42.50 },
+    { id: 'aluno-2', papel: 'Aluno', adultoId: 'adulto-1', nome: 'Lucas Andrade', email: 'lucas@aluno.cantina.test', turma: '6º ano', nascimento: '2014-06-03', restricoes: [], limiteDiario: null, saldo: -240 },
+    { id: 'admin-1', papel: 'Admin', nome: 'Cantina', email: 'cantina@exemplo.test', saldo: 0 },
+  ],
+  sessaoId: 'aluno-1', intervalo: 'manha', carrinho: {},
+  itens: catalogoInicial,
+  ofertas: { [dataLocal()]: { manha: catalogoInicial.map((i) => i.id), tarde: catalogoInicial.map((i) => i.id) } },
+  pedidos: [
+    { id: '1001', usuarioId: 'aluno-1', usuarioNome: 'Marina Andrade', data: dataLocal(), intervalo: 'manha', status: 'Aberto', tipoVenda: 'Antecipado', formaPagamento: 'Conta', codigoRetirada: 'A7K2', temAlertaAlergia: true, itens: [{ itemId: 1, nome: 'Pão de queijo', quantidade: 1, precoUnitario: 4.5, subtotal: 4.5 }], total: 4.5 },
+    { id: '1002', usuarioId: 'aluno-2', usuarioNome: 'Lucas Andrade', data: dataLocal(), intervalo: 'manha', status: 'Aberto', tipoVenda: 'Antecipado', formaPagamento: 'Conta', codigoRetirada: 'B3M8', temAlertaAlergia: false, itens: [{ itemId: 2, nome: 'Coxinha', quantidade: 1, precoUnitario: 7, subtotal: 7 }], total: 7 },
+  ],
+  movimentos: [
+    { id: 'm1', usuarioId: 'aluno-1', data: dataLocal(), tipo: 'Compra', descricao: 'Pedido 1001', valor: -4.5, saldoApos: 42.5, itens: [{ nome: 'Pão de queijo', quantidade: 1, precoUnitario: 4.5, subtotal: 4.5 }] },
+    { id: 'm2', usuarioId: 'aluno-2', data: dataLocal(), tipo: 'Compra', descricao: 'Pedido 1002', valor: -7, saldoApos: -240, itens: [{ nome: 'Coxinha', quantidade: 1, precoUnitario: 7, subtotal: 7 }] },
+    { id: 'm3', usuarioId: 'aluno-1', data: previousMonth() + '-18', tipo: 'Compra', descricao: 'Compra no balcão', valor: -10.5, saldoApos: 47, itens: [{ nome: 'Suco de laranja', quantidade: 1, precoUnitario: 6, subtotal: 6 }, { nome: 'Pão de queijo', quantidade: 1, precoUnitario: 4.5, subtotal: 4.5 }] },
+  ],
+  metodos: [{ id: 'metodo-1', tipo: 'Pix', apelido: 'Chave pessoal', ultimosDigitos: '', padrao: true }],
+  fechamentos: [{ id: 'fechamento-1', adultoId: 'adulto-1', mesReferencia: previousMonth(), valorTotal: 18, status: 'Aberto', consumo: [{ nome: 'Marina Andrade', total: 10.5, itens: [{ nome: 'Suco de laranja', quantidade: 1, total: 6 }, { nome: 'Pão de queijo', quantidade: 1, total: 4.5 }] }, { nome: 'Lucas Andrade', total: 7.5, itens: [{ nome: 'Coxinha', quantidade: 1, total: 7.5 }] }] }],
+});
+function read() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s?.usuarios && s?.itens && s?.pedidos && s?.metodos && s?.fechamentos) return s; }
+  catch { /* browser storage is optional */ }
+  return seed();
 }
-
-function carregar() {
-  try {
-    const salvo = JSON.parse(localStorage.getItem(CHAVE));
-    if (salvo?.usuarios && salvo?.itens && salvo?.pedidos) return salvo;
-  } catch { /* O protótipo pode funcionar apenas em memória. */ }
-  return inicial();
+let state = read();
+function publish(next) {
+  state = next;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* in-memory demo */ }
+  listeners.forEach((listener) => listener());
 }
-
-let estado = carregar();
-function publicar(proximo) {
-  estado = proximo;
-  try { localStorage.setItem(CHAVE, JSON.stringify(estado)); } catch { /* Mantém em memória. */ }
-  ouvintes.forEach((ouvinte) => ouvinte());
+function mutate(fn) { const next = copy(state); const result = fn(next); publish(next); return result; }
+function requireUser(s, id) { const u = s.usuarios.find((v) => v.id === id); if (!u) throw new Error('Selecione um usuário válido.'); return u; }
+function movement(s, u, tipo, valor, descricao, itens = []) {
+  u.saldo = round(u.saldo + valor);
+  s.movimentos.unshift({ id: uid(), usuarioId: u.id, data: dataLocal(), tipo, valor: round(valor), descricao, saldoApos: u.saldo, itens });
 }
-function copiar() { return structuredClone(estado); }
-function id() { return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; }
-async function hash(senha) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(senha));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+function lines(s, quantities) {
+  const result = Object.entries(quantities).filter(([, q]) => Number(q) > 0).map(([key, q]) => {
+    const item = s.itens.find((v) => String(v.id) === String(key));
+    if (!item || !item.ativo) throw new Error('Item indisponível.');
+    const quantidade = Math.floor(Number(q));
+    if (!Number.isFinite(quantidade) || quantidade < 1) throw new Error('Quantidade inválida.');
+    if (item.estoque < quantidade) throw new Error(item.nome + ' esgotou');
+    return { itemId: item.id, nome: item.nome, quantidade, precoUnitario: item.preco, subtotal: round(item.preco * quantidade), alergenos: item.alergenos };
+  });
+  if (!result.length) throw new Error('Selecione pelo menos um item.');
+  return result;
 }
-function validarEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
-function usuarioAtual(dados = estado) { return dados.usuarios.find((usuario) => usuario.id === dados.sessaoId) ?? null; }
-function totalDoCarrinho(dados = estado) {
-  return Object.entries(dados.carrinho).reduce((total, [itemId, quantidade]) => {
-    const item = dados.itens.find((atual) => atual.id === Number(itemId));
-    return total + (item?.preco ?? 0) * quantidade;
-  }, 0);
+function validate(s, u, total, forma, extra = 0) {
+  if (forma !== 'Conta' || u.papel !== 'Aluno') return;
+  const spent = s.pedidos.filter((p) => p.usuarioId === u.id && p.data === dataLocal() && p.status !== 'Cancelado').reduce((n, p) => n + p.total, 0);
+  if (u.limiteDiario != null && round(spent + extra + total) > Number(u.limiteDiario)) throw new Error('Limite diário de ' + money(u.limiteDiario) + ' atingido');
+  if (round(u.saldo - total) < -250) throw new Error('Limite de R$ 250,00 atingido — somente à vista');
 }
-function itensDoCarrinho(dados = estado) {
-  return Object.entries(dados.carrinho).map(([itemId, quantidade]) => {
-    const item = dados.itens.find((atual) => atual.id === Number(itemId));
-    return item ? { ...item, quantidade } : null;
-  }).filter(Boolean);
-}
-function gastoHoje(dados, usuarioId) {
-  return dados.pedidos.filter((pedido) => pedido.usuarioId === usuarioId && pedido.data === dataLocal() && pedido.status !== 'Cancelado').reduce((soma, pedido) => soma + pedido.total, 0);
-}
-
+export const money = (n) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(n) || 0);
+export const disponivelNoIntervalo = (s, item, intervalo, date = dataLocal()) => Boolean(item?.ativo && item.estoque > 0 && s.ofertas?.[date]?.[intervalo]?.includes(item.id));
+export const statusPedido = (p) => p.status === 'Aberto' && !intervaloAberto(p.intervalo, p.data) ? 'Confirmado' : p.status;
+export const displayDate = (v) => { const [y, m, d] = String(v).slice(0, 10).split('-'); return d && m && y ? d + '/' + m + '/' + y : String(v); };
 export const cantinaService = {
-  snapshot: () => estado,
-  subscribe(ouvinte) { ouvintes.add(ouvinte); return () => ouvintes.delete(ouvinte); },
-  usuarioAtual, totalDoCarrinho, itensDoCarrinho,
-
-  async entrar(email, senha) {
-    const usuario = estado.usuarios.find((atual) => atual.email.toLowerCase() === email.trim().toLowerCase());
-    if (!usuario || usuario.senhaHash !== await hash(senha)) throw new Error('E-mail ou senha inválidos.');
-    publicar({ ...estado, sessaoId: usuario.id, carrinho: {} });
-    return usuario;
+  snapshot: () => state,
+  subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+  usuarioAtual(s = state) { return s.usuarios.find((u) => u.id === s.sessaoId) || null; },
+  itensDoCarrinho(s = state) { return Object.entries(s.carrinho).map(([id, q]) => { const i = s.itens.find((v) => String(v.id) === id); return i ? { ...i, quantidade: q } : null; }).filter(Boolean); },
+  totalDoCarrinho(s = state) { return round(this.itensDoCarrinho(s).reduce((n, i) => n + i.preco * i.quantidade, 0)); },
+  entrar(email, senha) {
+    const u = state.usuarios.find((v) => v.email.toLowerCase() === email.trim().toLowerCase());
+    if (!u || senha !== 'senha123') throw new Error('Credenciais demonstrativas inválidas.');
+    mutate((s) => { s.sessaoId = u.id; s.carrinho = {}; });
+    return u;
   },
-  sair() { publicar({ ...estado, sessaoId: null, carrinho: {} }); },
-
-  async cadastrarAdulto(campos) {
-    const nome = campos.nome.trim(), email = campos.email.trim().toLowerCase();
-    const cpf = campos.cpf.replace(/\D/g, ''), telefone = campos.telefone.replace(/\D/g, '');
-    if (nome.length < 3) throw new Error('Informe o nome completo.');
-    if (!validarEmail(email)) throw new Error('Informe um e-mail válido.');
-    if (cpf.length !== 11) throw new Error('O CPF deve ter 11 dígitos.');
-    if (telefone.length < 10) throw new Error('Informe um telefone válido.');
-    if (campos.senha.length < 6) throw new Error('A senha deve ter pelo menos 6 caracteres.');
-    if (estado.usuarios.some((usuario) => usuario.email === email)) throw new Error('E-mail já cadastrado.');
-    const novo = { id: id(), papel: 'Adulto', nome, email, cpf, telefone, senhaHash: await hash(campos.senha), saldo: 0 };
-    publicar({ ...estado, usuarios: [...estado.usuarios, novo], sessaoId: novo.id, carrinho: {} });
-    return novo;
+  sair() { mutate((s) => { s.sessaoId = null; s.carrinho = {}; }); },
+  cadastrarAdulto(data) {
+    if (!data.nome?.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(data.email || '') || !/^\d{11}$/.test((data.cpf || '').replace(/\D/g, '')) || (data.telefone || '').replace(/\D/g, '').length < 10 || (data.senha || '').length < 6) throw new Error('Confira nome, e-mail, CPF e senha (mínimo 6 caracteres).');
+    if (state.usuarios.some((u) => u.email === data.email.trim().toLowerCase())) throw new Error('E-mail já cadastrado.');
+    return mutate((s) => { const u = { id: uid(), papel: 'Adulto', nome: data.nome.trim(), email: data.email.trim().toLowerCase(), cpf: data.cpf, telefone: data.telefone, saldo: 0 }; s.usuarios.push(u); s.sessaoId = u.id; return u; });
   },
-
-  async cadastrarAluno(campos) {
-    const adulto = usuarioAtual();
-    if (adulto?.papel !== 'Adulto') throw new Error('Entre com a conta do responsável para cadastrar um aluno.');
-    const nome = campos.nome.trim(), email = campos.email.trim().toLowerCase();
-    if (nome.length < 3) throw new Error('Informe o nome completo.');
-    if (!validarEmail(email) || !email.endsWith('@aluno.cantina.test')) throw new Error('No protótipo, use um e-mail @aluno.cantina.test.');
-    if (!campos.turma.trim()) throw new Error('Informe a turma.');
-    if (!campos.nascimento) throw new Error('Informe a data de nascimento.');
-    if (campos.senha.length < 6) throw new Error('A senha deve ter pelo menos 6 caracteres.');
-    if (estado.usuarios.some((usuario) => usuario.email === email)) throw new Error('E-mail já cadastrado.');
-    const novo = { id: id(), papel: 'Aluno', adultoId: adulto.id, nome, email, turma: campos.turma.trim(), nascimento: campos.nascimento, restricoes: campos.restricoes.trim(), limiteDiario: null, saldo: 0, avisos: true, senhaHash: await hash(campos.senha) };
-    publicar({ ...estado, usuarios: [...estado.usuarios, novo] });
-    return novo;
+  cadastrarAluno(data) {
+    const adult = this.usuarioAtual(); if (adult?.papel !== 'Adulto') throw new Error('Apenas o responsável logado cadastra o aluno.');
+    if (!data.nome?.trim() || !data.turma?.trim() || !data.nascimento || !/^[^@]+@aluno\.cantina\.test$/i.test(data.email || '') || (data.senha || '').length < 6) throw new Error('Confira os dados e use o e-mail institucional do aluno.');
+    if (state.usuarios.some((u) => u.email === data.email.trim().toLowerCase())) throw new Error('E-mail já cadastrado.');
+    return mutate((s) => { const u = { id: uid(), papel: 'Aluno', adultoId: adult.id, nome: data.nome.trim(), email: data.email.trim().toLowerCase(), turma: data.turma.trim(), nascimento: data.nascimento, restricoes: (data.restricoes || '').split(',').map((x) => x.trim()).filter(Boolean), limiteDiario: null, saldo: 0 }; s.usuarios.push(u); return u; });
   },
-
-  escolherIntervalo(intervalo) {
-    if (['manha', 'tarde'].includes(intervalo)) publicar({ ...estado, intervalo });
+  escolherIntervalo(chave) { if (intervalos[chave]) mutate((s) => { s.intervalo = chave; s.carrinho = {}; }); },
+  definirQuantidade(itemId, q) { mutate((s) => { const i = s.itens.find((v) => String(v.id) === String(itemId)); if (!disponivelNoIntervalo(s, i, s.intervalo) || i.categoria === 'Combos') return; const n = Math.min(i.estoque, Math.max(0, Math.floor(Number(q) || 0))); if (n) s.carrinho[i.id] = n; else delete s.carrinho[i.id]; }); },
+  limparCarrinho() { mutate((s) => { s.carrinho = {}; }); },
+  confirmarPedido(forma = 'Conta') {
+    const u = this.usuarioAtual(); if (u?.papel !== 'Aluno') throw new Error('Selecione uma conta de aluno.');
+    if (!intervaloAberto(state.intervalo)) throw new Error('Pedidos para este intervalo já fecharam');
+    const orderLines = lines(state, state.carrinho);
+    for (const l of orderLines) { const item = state.itens.find((i) => i.id === l.itemId); if (!disponivelNoIntervalo(state, item, state.intervalo) || item.categoria === 'Combos') throw new Error(item.nome + ' não está no cardápio deste intervalo'); }
+    if (state.pedidos.some((p) => p.usuarioId === u.id && p.data === dataLocal() && p.intervalo === state.intervalo && p.tipoVenda === 'Antecipado' && p.status !== 'Cancelado')) throw new Error('Você já tem um pedido neste intervalo. Altere o pedido existente.');
+    const total = round(orderLines.reduce((n, l) => n + l.subtotal, 0)); validate(state, u, total, forma);
+    return mutate((s) => {
+      const user = requireUser(s, u.id), id = String(Date.now());
+      const order = { id, usuarioId: u.id, usuarioNome: u.nome, data: dataLocal(), intervalo: s.intervalo, status: 'Aberto', tipoVenda: 'Antecipado', formaPagamento: forma, codigoRetirada: Math.random().toString(36).slice(2, 6).toUpperCase(), temAlertaAlergia: orderLines.some((l) => l.alergenos.some((a) => user.restricoes?.some((r) => r.toLowerCase() === a.toLowerCase()))), total, itens: orderLines.map(({ alergenos, ...rest }) => rest) };
+      orderLines.forEach((l) => { s.itens.find((i) => i.id === l.itemId).estoque -= l.quantidade; });
+      if (forma === 'Conta') movement(s, user, 'Compra', -total, 'Pedido ' + id, order.itens);
+      s.pedidos.unshift(order); s.carrinho = {}; return order;
+    });
   },
-  definirQuantidade(itemId, quantidade) {
-    const item = estado.itens.find((atual) => atual.id === Number(itemId));
-    if (!item?.ativo || !item.disponivel || item.estoque < 1) return;
-    const proximo = copiar();
-    const valor = Math.max(0, Math.min(item.estoque, Math.trunc(Number(quantidade) || 0)));
-    if (valor === 0) delete proximo.carrinho[item.id]; else proximo.carrinho[item.id] = valor;
-    publicar(proximo);
+  alterarPedido(orderId, quantities) {
+    const u = this.usuarioAtual(), old = state.pedidos.find((p) => p.id === orderId && p.usuarioId === u?.id && p.tipoVenda === 'Antecipado');
+    if (!old || old.status !== 'Aberto' || !intervaloAberto(old.intervalo, old.data)) throw new Error('O prazo de alteração terminou.');
+    const available = copy(state); old.itens.forEach((l) => { available.itens.find((i) => i.id === l.itemId).estoque += l.quantidade; });
+    const nextLines = lines(available, quantities);
+    for (const l of nextLines) if (!disponivelNoIntervalo(available, available.itens.find((i) => i.id === l.itemId), old.intervalo, old.data)) throw new Error(l.nome + ' não está no cardápio deste intervalo');
+    const total = round(nextLines.reduce((n, l) => n + l.subtotal, 0));
+    const delta = round(total - old.total);
+    validate(state, u, delta, old.formaPagamento);
+    return mutate((s) => {
+      const p = s.pedidos.find((v) => v.id === orderId), user = requireUser(s, u.id);
+      p.itens.forEach((l) => { s.itens.find((i) => i.id === l.itemId).estoque += l.quantidade; });
+      nextLines.forEach((l) => { s.itens.find((i) => i.id === l.itemId).estoque -= l.quantidade; });
+      p.itens = nextLines.map(({ alergenos, ...rest }) => rest); p.total = total;
+      p.temAlertaAlergia = nextLines.some((l) => l.alergenos.some((a) => user.restricoes?.some((r) => r.toLowerCase() === a.toLowerCase())));
+      if (p.formaPagamento === 'Conta' && delta) movement(s, user, delta > 0 ? 'Compra' : 'Estorno', -delta, 'Alteração do pedido ' + p.id, p.itens);
+      return p;
+    });
   },
-  limparCarrinho() { publicar({ ...estado, carrinho: {} }); },
-
-  confirmarPedido(formaPagamento) {
-    const usuario = usuarioAtual();
-    if (usuario?.papel !== 'Aluno') throw new Error('Entre com uma conta de aluno para fazer um pedido.');
-    if (!['Conta', 'AVista'].includes(formaPagamento)) throw new Error('Escolha uma forma de pagamento.');
-    if (!intervaloAberto(estado.intervalo)) throw new Error('Pedidos para este intervalo já fecharam.');
-    const linhas = itensDoCarrinho();
-    if (!linhas.length) throw new Error('Escolha pelo menos um item.');
-    for (const item of linhas) if (!item.ativo || !item.disponivel || item.estoque < item.quantidade) throw new Error(`${item.nome} esgotou.`);
-    const existente = estado.pedidos.some((pedido) => pedido.usuarioId === usuario.id && pedido.data === dataLocal() && pedido.intervalo === estado.intervalo && pedido.status !== 'Cancelado');
-    if (existente) throw new Error('Você já possui um pedido neste intervalo.');
-    const total = totalDoCarrinho();
-    if (formaPagamento === 'Conta') {
-      if (usuario.limiteDiario != null && gastoHoje(estado, usuario.id) + total > usuario.limiteDiario) throw new Error('Limite diário definido pelo responsável atingido.');
-      if (usuario.saldo - total < -250) throw new Error('Limite de R$ 250,00 atingido — somente à vista.');
-    }
-    const proximo = copiar();
-    const aluno = proximo.usuarios.find((atual) => atual.id === usuario.id);
-    const pedido = { id: `CP-${String(Date.now()).slice(-6)}`, usuarioId: usuario.id, data: dataLocal(), intervalo: proximo.intervalo, status: 'Confirmado', formaPagamento, codigoRetirada: Math.random().toString(36).slice(2, 6).toUpperCase(), itens: linhas.map((item) => ({ id: item.id, nome: item.nome, quantidade: item.quantidade, preco: item.preco })), total };
-    for (const linha of linhas) proximo.itens.find((atual) => atual.id === linha.id).estoque -= linha.quantidade;
-    if (formaPagamento === 'Conta') {
-      aluno.saldo = Math.round((aluno.saldo - total) * 100) / 100;
-      proximo.movimentos.unshift({ id: id(), usuarioId: aluno.id, data: dataLocal(), tipo: 'Compra', descricao: `Pedido ${pedido.id}`, valor: -total, saldoApos: aluno.saldo });
-    }
-    proximo.pedidos.unshift(pedido); proximo.carrinho = {}; publicar(proximo); return pedido;
+  cancelarPedido(orderId) {
+    const u = this.usuarioAtual(), p = state.pedidos.find((v) => v.id === orderId && v.usuarioId === u?.id);
+    if (!p || p.status !== 'Aberto' || !intervaloAberto(p.intervalo, p.data)) throw new Error('O prazo de cancelamento terminou.');
+    mutate((s) => { const order = s.pedidos.find((v) => v.id === orderId); order.status = 'Cancelado'; order.itens.forEach((l) => { s.itens.find((i) => i.id === l.itemId).estoque += l.quantidade; }); if (order.formaPagamento === 'Conta') movement(s, requireUser(s, u.id), 'Estorno', order.total, 'Cancelamento ' + orderId); });
   },
-
-  cancelarPedido(pedidoId) {
-    const usuario = usuarioAtual();
-    const pedido = estado.pedidos.find((atual) => atual.id === pedidoId && atual.usuarioId === usuario?.id);
-    if (!pedido || pedido.status !== 'Confirmado') throw new Error('Este pedido não pode ser cancelado.');
-    if (!intervaloAberto(pedido.intervalo, pedido.data)) throw new Error('O prazo de cancelamento deste intervalo já terminou.');
-    const proximo = copiar();
-    const alterado = proximo.pedidos.find((atual) => atual.id === pedidoId); alterado.status = 'Cancelado';
-    for (const linha of alterado.itens) { const item = proximo.itens.find((atual) => atual.id === linha.id); if (item) item.estoque += linha.quantidade; }
-    if (alterado.formaPagamento === 'Conta') {
-      const aluno = proximo.usuarios.find((atual) => atual.id === usuario.id);
-      aluno.saldo = Math.round((aluno.saldo + alterado.total) * 100) / 100;
-      proximo.movimentos.unshift({ id: id(), usuarioId: aluno.id, data: dataLocal(), tipo: 'Estorno', descricao: `Cancelamento ${pedidoId}`, valor: alterado.total, saldoApos: aluno.saldo });
-    }
-    publicar(proximo);
+  entregarPedido(orderId) {
+    mutate((s) => { const p = s.pedidos.find((v) => v.id === orderId && v.tipoVenda === 'Antecipado'); if (!p || p.status === 'Cancelado' || p.status === 'Entregue') throw new Error('Pedido não disponível para entrega.'); p.status = 'Entregue'; p.entregueEm = new Date().toISOString(); });
   },
-
-  atualizarPerfil({ nome, email, avisos }) {
-    const atual = usuarioAtual(); if (!atual) throw new Error('Entre para editar o perfil.');
-    const nomeLimpo = nome.trim(), emailLimpo = email.trim().toLowerCase();
-    if (nomeLimpo.length < 3) throw new Error('Informe o nome completo.');
-    if (!validarEmail(emailLimpo)) throw new Error('Informe um e-mail válido.');
-    if (atual.papel === 'Aluno' && !emailLimpo.endsWith('@aluno.cantina.test')) throw new Error('Use o e-mail institucional do protótipo.');
-    if (estado.usuarios.some((usuario) => usuario.id !== atual.id && usuario.email === emailLimpo)) throw new Error('E-mail já cadastrado.');
-    const proximo = copiar(); const usuario = proximo.usuarios.find((item) => item.id === atual.id);
-    usuario.nome = nomeLimpo; usuario.email = emailLimpo; usuario.avisos = Boolean(avisos); publicar(proximo);
+  venderBalcao(userId, quantities, forma = 'Conta') {
+    const u = requireUser(state, userId); if (!['Aluno', 'Adulto'].includes(u.papel)) throw new Error('Selecione aluno ou responsável.');
+    const orderLines = lines(state, quantities), total = round(orderLines.reduce((n, l) => n + l.subtotal, 0));
+    validate(state, u, total, forma);
+    return mutate((s) => {
+      const user = requireUser(s, userId), id = String(Date.now());
+      const p = { id, usuarioId: userId, usuarioNome: u.nome, data: dataLocal(), intervalo: null, status: 'Entregue', tipoVenda: 'Balcao', formaPagamento: forma, codigoRetirada: '', temAlertaAlergia: orderLines.some((l) => l.alergenos.some((a) => user.restricoes?.some((r) => r.toLowerCase() === a.toLowerCase()))), total, itens: orderLines.map(({ alergenos, ...rest }) => rest) };
+      orderLines.forEach((l) => { s.itens.find((i) => i.id === l.itemId).estoque -= l.quantidade; });
+      if (forma === 'Conta') movement(s, user, 'Compra', -total, 'Compra no balcão ' + id, p.itens);
+      s.pedidos.unshift(p); return p;
+    });
+  },
+  adicionarCredito(userId, value, methodId) {
+    const n = Number(value); if (!Number.isFinite(n) || n < 1 || n > 1000) throw new Error('Informe um valor de R$ 1 a R$ 1.000.');
+    if (methodId && !state.metodos.some((m) => m.id === methodId)) throw new Error('Escolha um método válido.');
+    mutate((s) => movement(s, requireUser(s, userId), 'Credito', n, 'Crédito demonstrativo'));
+  },
+  definirLimite(userId, value) {
+    if (value !== null && (!Number.isFinite(Number(value)) || Number(value) <= 0)) throw new Error('Informe um limite maior que zero.');
+    mutate((s) => { requireUser(s, userId).limiteDiario = value === null ? null : round(value); });
+  },
+  definirRestricoes(userId, text) { mutate((s) => { requireUser(s, userId).restricoes = text.split(',').map((x) => x.trim()).filter(Boolean); }); },
+  salvarMetodo(data) {
+    if (!['Pix', 'Cartao'].includes(data.tipo) || !data.apelido.trim() || (data.tipo === 'Cartao' && !/^\d{4}$/.test(data.ultimosDigitos))) throw new Error('Informe tipo, apelido e, para cartão, os quatro últimos dígitos fictícios.');
+    return mutate((s) => { if (data.padrao) s.metodos.forEach((m) => { m.padrao = false; }); const m = { id: uid(), tipo: data.tipo, apelido: data.apelido.trim(), ultimosDigitos: data.tipo === 'Cartao' ? data.ultimosDigitos : '', padrao: Boolean(data.padrao) || !s.metodos.length }; s.metodos.push(m); return m; });
+  },
+  definirMetodoPadrao(id) { mutate((s) => { if (!s.metodos.some((m) => m.id === id)) throw new Error('Método inválido.'); s.metodos.forEach((m) => { m.padrao = m.id === id; }); }); },
+  pagarFechamento(id, methodId) {
+    if (!state.metodos.some((m) => m.id === methodId)) throw new Error('Selecione um método de pagamento.');
+    mutate((s) => { const f = s.fechamentos.find((v) => v.id === id); if (!f || f.status !== 'Aberto') throw new Error('Fechamento indisponível.'); f.status = 'Pago'; f.pagoEm = new Date().toISOString(); let saldo = f.valorTotal; const family = s.usuarios.filter((u) => u.id === f.adultoId || u.adultoId === f.adultoId).filter((u) => u.saldo < 0).sort((a, b) => a.saldo - b.saldo); family.forEach((u) => { const amount = Math.min(saldo, -u.saldo); if (amount) movement(s, u, 'Pagamento', amount, 'Fechamento ' + f.mesReferencia); saldo = round(saldo - amount); }); if (saldo) movement(s, requireUser(s, f.adultoId), 'Pagamento', saldo, 'Crédito do fechamento ' + f.mesReferencia); });
+  },
+  salvarItem(data) {
+    const preco = Number(data.preco), estoque = Number(data.estoque);
+    if (!data.nome?.trim() || !data.descricao?.trim() || !['Salgados', 'Doces', 'Bebidas'].includes(data.categoria) || !Number.isFinite(preco) || preco <= 0 || !Number.isInteger(estoque) || estoque < 0) throw new Error('Confira nome, descrição, categoria, preço e estoque.');
+    return mutate((s) => { const i = data.id ? s.itens.find((v) => v.id === data.id) : { id: Math.max(0, ...s.itens.map((v) => v.id)) + 1, ativo: true, disponivel: true }; if (!i) throw new Error('Item não encontrado.'); Object.assign(i, { nome: data.nome.trim(), descricao: data.descricao.trim(), categoria: data.categoria, preco: round(preco), estoque, alergenos: (data.alergenos || '').split(',').map((x) => x.trim()).filter(Boolean) }); if (!data.id) s.itens.push(i); return i; });
+  },
+  definirOferta(id, intervalo, disponivel) {
+    if (!intervalos[intervalo] || !state.itens.some((i) => i.id === id)) throw new Error('Item ou intervalo inválido.');
+    mutate((s) => { const day = s.ofertas[dataLocal()] || (s.ofertas[dataLocal()] = { manha:[], tarde:[] }); const ids = new Set(day[intervalo] || []); if (disponivel) ids.add(id); else ids.delete(id); day[intervalo] = Array.from(ids); });
+  },
+  desativarItem(id) { mutate((s) => { const i = s.itens.find((v) => v.id === id); if (!i) throw new Error('Item não encontrado.'); i.ativo = false; }); },
+  atualizarPerfil(data) {
+    const u = this.usuarioAtual(); if (!u) throw new Error('Entre para editar o perfil.');
+    if (!data.nome?.trim() || !/^[^@]+@[^@]+\.[^@]+$/.test(data.email || '')) throw new Error('Informe nome e e-mail válidos.');
+    mutate((s) => { const user = requireUser(s, u.id); user.nome = data.nome.trim(); user.email = data.email.trim(); });
   },
 };

@@ -1,32 +1,17 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import Feedback from '../components/Feedback';
 import Quantidade from '../components/Quantidade';
-import { useAuth } from '../hooks/useAuth';
 import { useCantina } from '../hooks/useCantina';
-import { dinheiro, intervaloAberto, intervalos } from '../services/catalogo';
-
+import { intervaloAberto, intervalos } from '../services/catalogo';
+import { money } from '../services/cantinaService';
 export default function RevisaoPedido() {
-  const navigate = useNavigate();
-  const { usuario } = useAuth();
-  const { estado, itensCarrinho, totalCarrinho, service } = useCantina();
-  const [pagamento, setPagamento] = useState('Conta'), [erro, setErro] = useState(''), [ocupado, setOcupado] = useState(false);
-  function confirmar() {
-    setErro(''); setOcupado(true);
-    try { const pedido = service.confirmarPedido(pagamento); navigate('/historico', { state: { aviso: `Pedido ${pedido.id} confirmado. Código: ${pedido.codigoRetirada}` } }); }
-    catch (falha) { setErro(falha.message); } finally { setOcupado(false); }
-  }
-  return <div className="container section" style={{maxWidth:1000}}>
-    <span className="eyebrow">Revise antes de finalizar</span><h1>Seu pedido está quase pronto</h1><p className="muted">Confira os itens, ajuste se necessário e escolha como prefere pagar.</p>
-    <div className="order-layout" style={{marginTop:25}}><section className="surface pad">
-      <div className="between"><div><strong className="green">CANTINA DO PÁTIO</strong><p className="muted small">Retirada no intervalo da {intervalos[estado.intervalo].nome.toLowerCase()}</p></div><span className="badge amber">AGUARDANDO CONFIRMAÇÃO</span></div><div className="divider" />
-      {itensCarrinho.length ? itensCarrinho.map(item => <div className="order-line" key={item.id}><div><strong>{item.nome}</strong><div className="muted small">{dinheiro(item.preco)} por unidade</div></div><Quantidade nome={item.nome} valor={item.quantidade} maximo={item.estoque} aoAlterar={valor => service.definirQuantidade(item.id,valor)} /><strong>{dinheiro(item.quantidade*item.preco)}</strong></div>) : <div className="alert">Seu pedido está vazio. Volte ao cardápio para escolher itens.</div>}
-      <div className="between total-line"><span>TOTAL</span><span className="accent">{dinheiro(totalCarrinho)}</span></div><p className="muted small right" style={{marginTop:18}}>Este resumo não é um documento fiscal • Retirada no balcão.</p>
-    </section><aside className="surface pad"><h3>Pagamento</h3><p className="muted small">Use sua conta ou pague à vista no balcão.</p>
-      <label className="field" style={{margin:'17px 0'}}>Forma de pagamento<select className="input" value={pagamento} onChange={e => setPagamento(e.target.value)}><option value="Conta">Lançar na minha conta</option><option value="AVista">Pagar à vista na retirada</option></select></label>
-      <div className="success">Seu saldo<br/><strong style={{fontSize:23}}>{dinheiro(usuario.saldo)}</strong><div className="small">{pagamento === 'Conta' ? `Após a compra: ${dinheiro(usuario.saldo-totalCarrinho)}` : 'Pagamento à vista não altera a conta'}</div></div>
-      {!intervaloAberto(estado.intervalo) && <div className="alert" style={{marginTop:12}}>Pedidos para este intervalo já fecharam.</div>}
-    </aside></div>
-    {erro && <div className="alert" role="alert" style={{marginTop:15}}>{erro}</div>}
-    <div className="between wrap no-print" style={{marginTop:20}}><Link className="btn soft" to="/cardapio">← Voltar ao cardápio</Link><button className="btn" onClick={confirmar} disabled={!itensCarrinho.length || !intervaloAberto(estado.intervalo) || ocupado}>{ocupado?'Confirmando...':`Confirmar • ${dinheiro(totalCarrinho)}`}</button></div>
-  </div>;
+  const { estado, usuario, itensCarrinho, totalCarrinho, service } = useCantina();
+  const [forma,setForma] = useState('Conta'), [feedback,setFeedback] = useState({});
+  const aluno = usuario?.papel === 'Aluno' ? usuario : estado.usuarios.find((u) => u.id === 'aluno-1');
+  const teto = forma === 'Conta' && aluno && aluno.saldo-totalCarrinho < -250;
+  function submit() { try { const p=service.confirmarPedido(forma); setFeedback({ sucesso:'Pedido '+p.id+' criado como Aberto. Código: '+p.codigoRetirada }); } catch(e) { setFeedback({ erro:e.message }); } }
+  return <><div className="section-head"><span className="eyebrow">Conferência</span><h1>Revise seu pedido</h1><p className="lead">Intervalo {intervalos[estado.intervalo].nome.toLowerCase()} · {intervalos[estado.intervalo].inicio}. Ajuste quantidades antes de confirmar.</p></div><Feedback {...feedback}/>
+    <div className="two-column" style={{marginTop:20}}><section className="surface pad"><h2>Itens selecionados</h2>{itensCarrinho.map((i) => <div className="line" key={i.id}><div><strong>{i.nome}</strong><div className="small muted">{money(i.preco)} por unidade</div></div><Quantidade nome={i.nome} valor={i.quantidade} maximo={i.estoque} aoMudar={(q) => service.definirQuantidade(i.id,q)}/><strong>{money(i.preco*i.quantidade)}</strong></div>)}{!itensCarrinho.length && <div className="empty">Nenhum item selecionado.</div>}</section>
+      <aside className="surface pad sticky-panel"><h2>Resumo</h2><div className="between"><span>Total</span><strong className="metric">{money(totalCarrinho)}</strong></div><p className="small muted">Saldo projetado: {money((aluno?.saldo || 0)-totalCarrinho)}</p><label className="field">Forma de pagamento<select className="input" value={forma} onChange={(e) => setForma(e.target.value)}><option value="Conta">Lançar na conta</option><option value="AVista">À vista (demonstrativo)</option></select></label>{teto && <div className="alert" style={{marginTop:14}}>Limite de R$ 250,00 atingido — somente à vista</div>}<button className="btn full" style={{marginTop:18}} disabled={!itensCarrinho.length || !intervaloAberto(estado.intervalo) || teto} onClick={submit}>Confirmar pedido</button>{!intervaloAberto(estado.intervalo) && <p className="alert" style={{marginTop:12}}>Pedidos para este intervalo já fecharam</p>}</aside></div></>;
 }
+
