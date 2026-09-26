@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { useCantina } from '../hooks/useCantina';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
-export default function Login({ navigate }) {
-  const { service } = useCantina();
+export default function Login() {
+  const navigate = useNavigate();
+  const { entrar } = useAuth();
   const [email, setEmail] = useState(''), [senha, setSenha] = useState('');
   const [mostrar, setMostrar] = useState(false), [erro, setErro] = useState(''), [ocupado, setOcupado] = useState(false);
   async function enviar(evento) {
     evento.preventDefault(); setErro(''); setOcupado(true);
-    try { const usuario = await service.entrar(email, senha); navigate(usuario.papel === 'Aluno' ? '/home' : '/cadastro-aluno'); }
+    try { const usuario = await entrar(email, senha); navigate(usuario.permissao === 'Adulto' ? '/cadastro-aluno' : '/home'); }
     catch (falha) { setErro(falha.message); } finally { setOcupado(false); }
   }
   return <main className="auth-page"><section className="surface auth-card">
@@ -19,7 +21,7 @@ export default function Login({ navigate }) {
       {erro && <div className="alert" role="alert">{erro}</div>}
       <button className="btn full" type="submit" disabled={ocupado}>{ocupado?'Entrando...':'➜ Entrar'}</button>
     </form>
-    <p className="auth-bottom">Ainda não tem conta? <button className="text-button" onClick={() => navigate('/cadastro-adulto')}>Cadastre-se</button></p>
-    <p className="auth-bottom small">Demonstração: marina@aluno.cantina.test ou carla@email.test • senha123</p>
+    <p className="auth-bottom">Ainda não tem conta? <Link className="text-button" to="/cadastro-adulto">Cadastre-se</Link></p>
+    <p className="auth-bottom small">Demonstração: lucas.andrade@aluno.cantina.test ou carla.andrade@email.test • senha123</p>
   </section></main>;
 }

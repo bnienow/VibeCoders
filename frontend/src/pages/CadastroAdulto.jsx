@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useCantina } from '../hooks/useCantina';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const inicial = { nome:'', cpf:'', telefone:'', email:'', senha:'', confirmar:'' };
-export default function CadastroAdulto({ navigate }) {
-  const { service } = useCantina();
+export default function CadastroAdulto() {
+  const navigate = useNavigate();
+  const { cadastrar } = useAuth();
   const [campos, setCampos] = useState(inicial), [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false), [mostrar, setMostrar] = useState(false);
   const alterar = (campo, valor) => setCampos(anterior => ({...anterior,[campo]:valor}));
@@ -11,12 +13,12 @@ export default function CadastroAdulto({ navigate }) {
     evento.preventDefault(); setErro('');
     if (campos.senha !== campos.confirmar) { setErro('As senhas não coincidem.'); return; }
     setOcupado(true);
-    try { await service.cadastrarAdulto(campos); navigate('/cadastro-aluno'); }
+    try { await cadastrar({ nome: campos.nome, email: campos.email, senha: campos.senha, cpf: campos.cpf, telefone: campos.telefone }); navigate('/cadastro-aluno'); }
     catch (falha) { setErro(falha.message); } finally { setOcupado(false); }
   }
   return <main className="auth-page"><section className="surface auth-card">
     <h1>Crie sua conta de adulto</h1><p className="muted">Cadastre-se para acompanhar a alimentação de um estudante.</p>
-    <div className="tabs"><button type="button" onClick={() => navigate('/cadastro-aluno')}>♧ Aluno</button><button type="button" className="active">♙ Adulto</button></div>
+    <div className="tabs"><NavLink to="/cadastro-aluno">♧ Aluno</NavLink><NavLink to="/cadastro-adulto">♙ Adulto</NavLink></div>
     <form onSubmit={enviar}>
       <label className="field">Nome completo<input className="input" value={campos.nome} onChange={e=>alterar('nome',e.target.value)} placeholder="Ex.: Roberto Silva" required /></label>
       <label className="field">CPF<input className="input" inputMode="numeric" value={campos.cpf} onChange={e=>alterar('cpf',e.target.value)} placeholder="000.000.000-00" required /></label>
@@ -28,6 +30,6 @@ export default function CadastroAdulto({ navigate }) {
       <p className="muted small">Ao continuar, você concorda com os termos de uso e a política de privacidade.</p>
       {erro && <div className="alert" role="alert">{erro}</div>}
       <button className="btn full" type="submit" disabled={ocupado}>{ocupado?'Criando...':'➜ Criar minha conta'}</button>
-    </form><p className="auth-bottom">Já tem uma conta? <button className="text-button" onClick={() => navigate('/login')}>Entrar</button></p>
+    </form><p className="auth-bottom">Já tem uma conta? <Link className="text-button" to="/login">Entrar</Link></p>
   </section></main>;
 }

@@ -1,5 +1,8 @@
+import { Link, Navigate, NavLink, Outlet } from 'react-router-dom';
 import { dinheiro } from '../services/catalogo';
-import { useCantina } from '../hooks/useCantina';
+import { useAuth } from '../hooks/useAuth';
+
+const links = [['Home', '/home'], ['Cardápio', '/cardapio'], ['Histórico', '/historico'], ['Catálogo', '/catalogo']];
 
 export function Rodape() {
   return <footer className="site-footer"><div className="container footer-grid">
@@ -9,17 +12,21 @@ export function Rodape() {
   </div></footer>;
 }
 
-export default function Estrutura({ pagina, navigate, children }) {
-  const { usuario } = useCantina();
-  const links = [['Home','/home'],['Cardápio','/cardapio'],['Histórico','/historico'],['Catálogo','/catalogo']];
+// Layout da área logada: sem usuário, manda para o login; com usuário, cabeçalho + página (Outlet) + rodapé.
+// NavLink marca sozinho o link da página atual com a classe "active".
+export default function Estrutura() {
+  const { usuario, carregando } = useAuth();
+  if (carregando) return null; // ainda perguntando à API se há sessão
+  if (!usuario) return <Navigate to="/login" replace />;
+
   return <div className="page-shell">
     <header className="site-header"><div className="container header-inner">
-      <button className="brand" type="button" onClick={() => navigate('/home')}><span className="brand-mark">♜</span><span>Cantina<small>DO PÁTIO</small></span></button>
-      <div className="header-person"><strong>{usuario?.nome}</strong><span>Aluno • {usuario?.turma}</span></div>
-      <nav className="site-nav" aria-label="Navegação principal">{links.map(([texto, rota]) => <button key={rota} type="button" className={pagina === rota ? 'active' : ''} onClick={() => navigate(rota)}>{texto}</button>)}</nav>
-      <button type="button" className="balance-pill" onClick={() => navigate('/perfil')} title="Ver meu saldo">◧ {dinheiro(usuario?.saldo ?? 0)}</button>
-      <button type="button" className="btn secondary" style={{padding:'7px 10px',minHeight:33}} onClick={() => navigate('/perfil')} aria-label="Abrir perfil">♙</button>
+      <Link className="brand" to="/home"><span className="brand-mark">♜</span><span>Cantina<small>DO PÁTIO</small></span></Link>
+      <div className="header-person"><strong>{usuario.nome}</strong><span>{usuario.permissao}</span></div>
+      <nav className="site-nav" aria-label="Navegação principal">{links.map(([texto, rota]) => <NavLink key={rota} to={rota}>{texto}</NavLink>)}</nav>
+      {usuario.saldo != null && <Link className="balance-pill" to="/perfil" title="Ver meu saldo">◧ {dinheiro(usuario.saldo)}</Link>}
+      <Link className="btn secondary" style={{padding:'7px 10px',minHeight:33}} to="/perfil" aria-label="Abrir perfil">♙</Link>
     </div></header>
-    <main style={{flex:1}}>{children}</main><Rodape />
+    <main style={{flex:1}}><Outlet /></main><Rodape />
   </div>;
 }

@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import Estrutura from '../components/Estrutura';
+import { useNavigate } from 'react-router-dom';
 import Quantidade from '../components/Quantidade';
+import { useAuth } from '../hooks/useAuth';
 import { useCantina } from '../hooks/useCantina';
 import { dinheiro, intervaloAberto, intervalos, minutosRestantes } from '../services/catalogo';
 
 const categorias = ['Salgados','Doces','Bebidas','Combos'];
-export default function Cardapio({ navigate }) {
-  const { estado, usuario, itensCarrinho, totalCarrinho, service } = useCantina();
+export default function Cardapio() {
+  const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const { estado, itensCarrinho, totalCarrinho, service } = useCantina();
   const [busca, setBusca] = useState(''), [erro, setErro] = useState('');
   const aberto = intervaloAberto(estado.intervalo);
   const itens = estado.itens.filter(item => item.ativo && item.disponivel && item.estoque > 0 && item.nome.toLowerCase().includes(busca.toLowerCase()));
@@ -20,7 +23,7 @@ export default function Cardapio({ navigate }) {
     if (!itensCarrinho.length) { setErro('Selecione pelo menos um item.'); return; }
     navigate('/revisao');
   }
-  return <Estrutura pagina="/cardapio" navigate={navigate}><div className="container section">
+  return <div className="container section">
     <span className="eyebrow">Cardápio de hoje</span><div className="between wrap"><div><h1>Escolha o que vai deixar seu intervalo melhor</h1><p className="muted">Ajuste as quantidades. Você confere tudo antes de finalizar.</p></div><span className="badge">{itensCarrinho.reduce((soma,item) => soma + item.quantidade,0)} itens selecionados</span></div>
     <div className="surface pad grid-2" style={{marginTop:20}}>
       <label className="field">Intervalo para retirada<select className="input" value={estado.intervalo} onChange={e => service.escolherIntervalo(e.target.value)}>{Object.entries(intervalos).map(([chave, intervalo]) => <option key={chave} value={chave}>{intervalo.nome} • {intervalo.inicio}</option>)}</select></label>
@@ -36,5 +39,5 @@ export default function Cardapio({ navigate }) {
     {!itens.length && <div className="surface pad">Nenhum item disponível para essa busca.</div>}
     <div className="between wrap" style={{marginTop:24}}><p className="muted small">Itens sujeitos à disponibilidade no momento da confirmação.</p><div className="row"><strong>Total: {dinheiro(totalCarrinho)}</strong><button className="btn" onClick={revisar} disabled={!itensCarrinho.length || !aberto}>➜ Revisar pedido</button></div></div>
     {erro && <div className="alert" role="alert">{erro}</div>}
-  </div></Estrutura>;
+  </div>;
 }

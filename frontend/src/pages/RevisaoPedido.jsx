@@ -1,18 +1,21 @@
 import { useState } from 'react';
-import Estrutura from '../components/Estrutura';
+import { Link, useNavigate } from 'react-router-dom';
 import Quantidade from '../components/Quantidade';
+import { useAuth } from '../hooks/useAuth';
 import { useCantina } from '../hooks/useCantina';
 import { dinheiro, intervaloAberto, intervalos } from '../services/catalogo';
 
-export default function RevisaoPedido({ navigate }) {
-  const { usuario, estado, itensCarrinho, totalCarrinho, service } = useCantina();
+export default function RevisaoPedido() {
+  const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const { estado, itensCarrinho, totalCarrinho, service } = useCantina();
   const [pagamento, setPagamento] = useState('Conta'), [erro, setErro] = useState(''), [ocupado, setOcupado] = useState(false);
   function confirmar() {
     setErro(''); setOcupado(true);
-    try { const pedido = service.confirmarPedido(pagamento); navigate('/historico',`Pedido ${pedido.id} confirmado. Código: ${pedido.codigoRetirada}`); }
+    try { const pedido = service.confirmarPedido(pagamento); navigate('/historico', { state: { aviso: `Pedido ${pedido.id} confirmado. Código: ${pedido.codigoRetirada}` } }); }
     catch (falha) { setErro(falha.message); } finally { setOcupado(false); }
   }
-  return <Estrutura pagina="/cardapio" navigate={navigate}><div className="container section" style={{maxWidth:1000}}>
+  return <div className="container section" style={{maxWidth:1000}}>
     <span className="eyebrow">Revise antes de finalizar</span><h1>Seu pedido está quase pronto</h1><p className="muted">Confira os itens, ajuste se necessário e escolha como prefere pagar.</p>
     <div className="order-layout" style={{marginTop:25}}><section className="surface pad">
       <div className="between"><div><strong className="green">CANTINA DO PÁTIO</strong><p className="muted small">Retirada no intervalo da {intervalos[estado.intervalo].nome.toLowerCase()}</p></div><span className="badge amber">AGUARDANDO CONFIRMAÇÃO</span></div><div className="divider" />
@@ -24,6 +27,6 @@ export default function RevisaoPedido({ navigate }) {
       {!intervaloAberto(estado.intervalo) && <div className="alert" style={{marginTop:12}}>Pedidos para este intervalo já fecharam.</div>}
     </aside></div>
     {erro && <div className="alert" role="alert" style={{marginTop:15}}>{erro}</div>}
-    <div className="between wrap no-print" style={{marginTop:20}}><button className="btn soft" onClick={() => navigate('/cardapio')}>← Voltar ao cardápio</button><button className="btn" onClick={confirmar} disabled={!itensCarrinho.length || !intervaloAberto(estado.intervalo) || ocupado}>{ocupado?'Confirmando...':`Confirmar • ${dinheiro(totalCarrinho)}`}</button></div>
-  </div></Estrutura>;
+    <div className="between wrap no-print" style={{marginTop:20}}><Link className="btn soft" to="/cardapio">← Voltar ao cardápio</Link><button className="btn" onClick={confirmar} disabled={!itensCarrinho.length || !intervaloAberto(estado.intervalo) || ocupado}>{ocupado?'Confirmando...':`Confirmar • ${dinheiro(totalCarrinho)}`}</button></div>
+  </div>;
 }
