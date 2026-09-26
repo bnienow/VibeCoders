@@ -14,7 +14,7 @@ Desafio: "A cantina ainda anota no caderninho"
 | Minutos por intervalo | 20 |
 | Atendimentos por intervalo | ~230 |
 | Itens no cardápio | 38 |
-| Pessoas atendendo | 3 |
+| Pessoas atendendo | 3 (só 1 opera o sistema, no caixa, com a conta Admin) |
 
 **Implicação de projeto:** ~5 segundos por atendimento no balcão. A tela do balcão é a parte mais crítica do sistema — deve funcionar com poucos toques, sem navegação entre páginas, com busca rápida por nome/código.
 
@@ -26,7 +26,7 @@ Desafio: "A cantina ainda anota no caderninho"
 |---|---|---|
 | **Aluno** | 11 a 18 anos | Vê cardápio, faz pedido antecipado, compra no balcão, vê o próprio saldo e pedidos |
 | **Adulto (responsável)** | Pai, mãe ou tutor | Coloca crédito, define limite diário, vê extrato do filho, define método de pagamento, paga fechamento mensal |
-| **Cantina** | 3 atendentes | Vê pedidos do intervalo, entrega, registra venda no balcão, gerencia itens/estoque, vê relatórios |
+| **Admin (cantina)** | 1 conta única, usada no caixa | Vê pedidos do intervalo, entrega, registra venda no balcão, gerencia itens/estoque, vê relatórios |
 
 ---
 
@@ -39,7 +39,7 @@ Desafio: "A cantina ainda anota no caderninho"
 | R1 | Cadastro de alunos e responsáveis, com vínculo | `UsuariosController`, `AlunosController`, `AdultosController` — telas de Cadastro e Gestão de Filhos |
 | R2 | Cardápio do dia com itens, preços e disponibilidade | `ItensController.GetCardapio()` — tela Cardápio |
 | R3 | Pedido antecipado (monta pedido + escolhe intervalo) | `PedidosController.Create()` com `TipoVenda = Antecipado` |
-| R4 | Retirada identificada por código, senha ou nome | `Pedido.CodigoRetirada` + busca no Painel da Cantina |
+| R4 | Retirada identificada por código, senha ou nome | `Pedido.CodigoRetirada` + busca no Painel do Admin |
 | R5 | Venda direta no balcão, poucos toques, lançamento na conta ou pagamento na hora | `PedidosController.CreateBalcao()` — tela PDV Balcão |
 | R6 | Lançamento na conta do aluno a cada compra | `Movimento` + atualização de `Saldo` na mesma transação |
 | R7 | Extrato e fechamento mensal, com histórico de consumo | `ExtratosController`, `FechamentosController` — tela Extrato |
@@ -63,13 +63,14 @@ Desafio: "A cantina ainda anota no caderninho"
 | Regra | Implementação |
 |---|---|
 | **O balcão nunca fecha** | Pedido antecipado é caminho a mais, não o único. `TipoVenda = Balcao` sempre disponível, independente de horário |
-| **Fiado tem teto** | Conta pode ficar negativa até **R$ 250,00**. Passou disso, só à vista. Validado em `ValidacaoPedidoService` |
+| **Fiado tem teto** | Vale só para **aluno**: conta pode ficar negativa até **R$ 250,00**. Passou disso, só à vista. Validado em `ValidacaoPedidoService` |
 | **Pedido fecha antes** | Pedidos antecipados fecham **15 minutos antes** do intervalo começar. Depois disso, cozinha já está montando |
 | **Um pedido por intervalo** | Um `Pedido` por aluno por intervalo. Incluir mais itens = alterar o pedido existente enquanto estiver `Aberto` |
 | **Cancelar só antes do fechamento** | Depois que fecha, sem cancelamento nem estorno. Pedidos já feitos são honrados |
 | **Item esgotado some** | `Estoque = 0` → item sai do cardápio, mas pedidos já feitos continuam válidos. Estoque é decrementado na **confirmação**, não na entrega |
 | **O limite é do responsável** | Aluno não altera o próprio limite de gasto nem o próprio saldo. Bloqueio por permissão |
 | **Fechamento no dia 1º** | Cada responsável recebe o consolidado do mês anterior, item a item |
+| **Um único Admin** | Existe só uma conta `Admin`, criada pelo `SeedData`. O registro só cria `Aluno` ou `Adulto` — não há rota nem tela para criar outro Admin. Só uma pessoa opera o sistema no caixa |
 
 ### Restrições técnicas (do briefing)
 
@@ -98,11 +99,12 @@ Desafio: "A cantina ainda anota no caderninho"
 - **ClosedXML 0.104.1** (export Excel)
 - **QuestPDF 2024.10.3** (export PDF)
 - **Swashbuckle.AspNetCore 6.6.2** (Swagger)
+- **Autenticação:** cookie auth nativo do ASP.NET Core (`AddAuthentication().AddCookie()`) + `PasswordHasher<Usuario>` — ambos no framework, sem pacote extra. Permissão vai como claim de role → `[Authorize(Roles = "Adulto")]`
 
 ### Frontend
 - **React + Vite**
 - `fetch` para consumo da API
-- CORS liberado para `http://localhost:5173`
+- **Proxy do Vite** (`server.proxy['/api']` → backend): front e API ficam na mesma origem, o cookie de sessão funciona sem CORS
 
 ### Integrações externas (opcionais, D4)
 - **SendGrid** (e-mail)
@@ -121,7 +123,7 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | Nome | string | |
 | Email | string | único |
 | SenhaHash | string | |
-| Permissao | enum | `Aluno` \| `Adulto` \| `Cantina` |
+| Permissao | enum | `Aluno` \| `Adulto` \| `Admin` |
 | Ativo | bool | |
 | CriadoEm | DateTime | |
 
@@ -130,9 +132,9 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | Campo | Tipo | Observação |
 |---|---|---|
 | UsuarioId | int | PK / FK → Usuario |
-| AdultoId | int | FK → Adulto (N alunos → 1 adulto) |
-| Matricula | string | usada na busca do balcão |
+| AdultoId | int | FK → Adulto, **obrigatório** — todo aluno tem um responsável (N alunos → 1 adulto) |
 | Turma | string | |
+| DataNascimento | DateOnly | pedida no cadastro (9.1) |
 | LimiteDiario | decimal? | definido pelo responsável (D2). Null = sem limite |
 | Saldo | decimal | positivo = crédito; negativo = fiado (mínimo -250) |
 | RestricoesAlimentares | string | lista de alérgenos, separada por vírgula (D3) |
@@ -144,7 +146,7 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | UsuarioId | int | PK / FK → Usuario |
 | Cpf | string | |
 | Telefone | string | usado no WhatsApp (D4) |
-| Saldo | decimal | responsável também pode comprar |
+| Saldo | decimal | responsável também pode comprar — **sem limite diário nem teto de fiado** |
 | MetodoPagamentoPadraoId | int? | FK → MetodoPagamento |
 
 ### Item
@@ -156,7 +158,7 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | **Descricao** | string | descrição do item exibida no cardápio |
 | PrecoUnitario | decimal | |
 | Estoque | int | 0 = esgotado, some do cardápio |
-| Categoria | enum | `Salgado` \| `Doce` \| `Bebida` \| `Combo` |
+| Categoria | enum | `Salgado` \| `Doce` \| `Bebida` \| `Combo` — combo é um item comum com preço e estoque próprios; a composição (ex.: "pão de queijo + suco") fica só na `Descricao` e não baixa o estoque dos componentes |
 | Alergenos | string | `Gluten,Lactose,Amendoim...` (D3) |
 | Ativo | bool | desativa sem apagar histórico |
 
@@ -165,9 +167,9 @@ Entidade genérica de autenticação. Aluno e Adulto especializam.
 | Campo | Tipo | Observação |
 |---|---|---|
 | Id | int | PK |
-| UsuarioId | int | FK → Usuario (aluno **ou** adulto) |
+| UsuarioId | int | FK → Usuario (aluno **ou** adulto), **obrigatório** — inclusive na venda de balcão |
 | Data | DateOnly | |
-| IntervaloId | int | FK → Intervalo |
+| IntervaloId | int? | FK → Intervalo. Null = venda de balcão fora de intervalo |
 | Status | enum | `Aberto` \| `Confirmado` \| `Entregue` \| `Cancelado` |
 | TipoVenda | enum | `Antecipado` \| `Balcao` |
 | FormaPagamento | enum | `Conta` \| `AVista` \| `Online` |
@@ -270,7 +272,9 @@ Conta corrente do usuário — alimenta extrato (R7) e fechamento.
 │       ├── TipoVenda.cs
 │       ├── FormaPagamento.cs
 │       ├── TipoMovimento.cs
-│       └── CategoriaItem.cs
+│       ├── CategoriaItem.cs
+│       ├── TipoMetodoPagamento.cs
+│       └── StatusFechamento.cs
 │
 ├── DTOs/
 │   ├── Auth/           (LoginDto, LoginResponseDto, RegistroDto)
@@ -326,13 +330,14 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | Método | Rota | Descrição |
 |---|---|---|
 | POST | `/api/auth/registro` | Cria conta (Aluno ou Adulto) — R1 |
-| POST | `/api/auth/login` | Retorna JWT + permissão |
+| POST | `/api/auth/login` | Valida senha, cria cookie de sessão, retorna permissão |
+| POST | `/api/auth/logout` | Encerra a sessão |
 | GET | `/api/auth/me` | Dados do usuário logado |
 
 ### Alunos
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/alunos` | Lista (filtro `?busca=` por nome/matrícula — usado no balcão) |
+| GET | `/api/alunos` | Lista (filtro `?busca=` por nome/e-mail — usado no balcão) |
 | GET | `/api/alunos/{id}` | Detalhe com saldo e restrições |
 | POST | `/api/alunos` | Cadastra aluno vinculado a um adulto — R1 |
 | GET | `/api/adultos/{id}/filhos` | Filhos do responsável |
@@ -344,7 +349,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/itens/cardapio` | Cardápio do dia: ativos com `Estoque > 0` — R2 |
-| GET | `/api/itens` | Todos (gestão da cantina) |
+| GET | `/api/itens` | Todos (gestão do Admin) |
 | POST | `/api/itens` | Cria item |
 | PUT | `/api/itens/{id}` | Edita nome, descrição, preço, alérgenos |
 | PUT | `/api/itens/{id}/estoque` | Ajusta estoque |
@@ -361,12 +366,12 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | DELETE | `/api/pedidos/{id}` | Cancela (só antes do fechamento) |
 | POST | `/api/pedidos/{id}/entregar` | Marca entregue — R4 |
 
-### Painel da cantina (R8)
+### Painel do Admin (R8)
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/painel/intervalo-atual` | Pedidos do próximo intervalo, agrupados |
 | GET | `/api/painel/preparo` | Consolidado por item: quanto precisa ser preparado |
-| GET | `/api/painel/buscar?termo=` | Busca por código, nome ou matrícula — R4 |
+| GET | `/api/painel/buscar?termo=` | Busca por código, nome ou e-mail — R4 |
 
 ### Extratos e fechamento (R7)
 | Método | Rota | Descrição |
@@ -398,7 +403,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 ### 9.1 Cadastro / Login (R1)
 - **Login:** e-mail + senha. Redireciona conforme permissão
 - **Cadastro de responsável:** nome, e-mail, CPF, telefone, senha
-- **Cadastro de aluno:** feito pelo responsável logado — nome, matrícula, turma, data de nascimento, restrições alimentares. Cria `Usuario` com permissão `Aluno` e vincula ao adulto
+- **Cadastro de aluno:** feito pelo responsável logado — nome, e-mail institucional (obrigatório, domínio do instituto), turma, data de nascimento, restrições alimentares. Cria `Usuario` com permissão `Aluno` e vincula ao adulto
 
 ### 9.2 Área do Aluno
 
@@ -447,20 +452,20 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 **Métodos de pagamento**
 - Cadastro de Pix/cartão fictício, marcação do padrão
 
-### 9.4 Área da Cantina
+### 9.4 Área do Admin (cantina)
 
 **Painel do intervalo (R8 / cena 2) — tela principal**
 - Header: intervalo atual, contagem regressiva, total de pedidos
 - **Coluna esquerda — Preparo:** consolidado por item (*"12x Pão de queijo"*) para a cozinha
 - **Coluna direita — Pedidos:** cards com código, nome do aluno, itens, badge de alergia
-- Busca no topo: código, nome ou matrícula (R4)
+- Busca no topo: código, nome ou e-mail (R4)
 - Um toque no card → **Entregar**. Card sai da lista
 - Filtro: Pendentes / Entregues
 
 **PDV Balcão (R5 / cena 3) — otimizado para ~5s por atendimento**
 - Grade de itens em botões grandes, agrupados por categoria, sem scroll na maioria dos casos
 - Toque no item adiciona ao carrinho; toque de novo incrementa
-- Campo de busca de aluno por nome/matrícula (opcional — venda avulsa é permitida)
+- Campo de busca de usuário por nome/e-mail — **obrigatório**: toda venda fica ligada a um usuário. A venda de balcão não entra na fila do painel: nasce `Entregue`
 - Ao selecionar o aluno: mostra saldo, limite e alerta de alergia
 - Dois botões de finalização: **Lançar na conta** · **Pagou à vista**
 - Se estourar o teto: bloqueia *Lançar na conta*, exibe **"Limite de R$ 250,00 atingido — somente à vista"** e mantém *Pagou à vista* habilitado (cena 5)
@@ -489,6 +494,7 @@ Todo pedido passa pelas seguintes checagens, em ordem:
 5. **Teto de fiado** — `saldo - total >= -250`; senão: *"Limite de R$ 250,00 atingido — somente à vista"*
 
 `AVista` e `Online` pulam as validações 4 e 5 — dinheiro na hora não afeta a conta.
+Pedido de **adulto** também pula 4 e 5 — limite diário e teto de fiado são regras só do aluno.
 
 ### Transação de confirmação (`ContaService`)
 Dentro de uma única transação:
@@ -507,7 +513,7 @@ Se qualquer passo falhar, nada é gravado.
 > *"E se a internet cair, a cantina não pode parar."*
 
 **Implementação mínima viável:**
-- Painel e PDV guardam em `localStorage` ao carregar: cardápio, lista de alunos (nome, matrícula, saldo) e pedidos do intervalo
+- Painel e PDV guardam em `localStorage` ao carregar: cardápio, lista de alunos (nome, e-mail, saldo) e pedidos do intervalo
 - Sem conexão: interface entra em **modo offline** (faixa amarela no topo), continua permitindo marcar entrega e registrar venda no balcão
 - Vendas offline entram numa fila local (`pendentes[]`)
 - Ao voltar a conexão: `POST /api/pedidos/sincronizar` envia a fila; o servidor reprocessa validações e retorna quais foram aceitas
@@ -520,6 +526,8 @@ Se qualquer passo falhar, nada é gravado.
 ## 12. Massa de teste (`SeedData`)
 
 Nenhum dado real — tudo fictício.
+
+- **1 conta Admin** (única no sistema) para o caixa
 
 - **2 intervalos:** Manhã (09:00–09:20), Tarde (15:30–15:50)
 - **38 itens** com nome, descrição, preço, estoque e alérgenos
@@ -538,7 +546,7 @@ Nenhum dado real — tudo fictício.
 | # | Cena | O que precisa acontecer na tela |
 |---|---|---|
 | 1 | **O aluno pede antes** | Escolhe itens do cardápio, define intervalo e confirma dentro do limite |
-| 2 | **A cantina entrega** | Painel lista os pedidos do intervalo; atendente localiza e marca como entregue |
+| 2 | **A cantina entrega** | Painel lista os pedidos do intervalo; o Admin localiza e marca como entregue |
 | 3 | **Alguém compra no balcão** | Aluno sem pedido antecipado é atendido: itens lançados e venda registrada em poucos toques |
 | 4 | **O responsável confere** | Abre extrato do filho e vê o que foi comprado, quando e quanto |
 | 5 | **O limite segura** | Pedido que estoura o teto de R$ 250 é recusado, com a mensagem certa |
@@ -551,7 +559,7 @@ Nenhum dado real — tudo fictício.
 
 | Fase | Tempo | Entrega |
 |---|---|---|
-| **0 — Setup** | 30 min | Monorepo, projetos criados, CORS, DbContext, migration inicial, seed rodando |
+| **0 — Setup** | 30 min | Monorepo, projetos criados, proxy do Vite, DbContext, migration inicial, seed rodando (com a conta Admin) |
 | **1 — Núcleo** | 3h | Entidades, Auth, Itens/Cardápio, Pedido antecipado com validações → **cena 1** |
 | **2 — Cantina** | 3h | Painel do intervalo + entrega + PDV balcão → **cenas 2 e 3** |
 | **3 — Responsável** | 2h | Extrato, crédito, limite → **cena 4** |
@@ -591,5 +599,5 @@ npm run dev
 
 **Frontend** (`.env`):
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=/api
 ```
