@@ -52,7 +52,7 @@ Desafio: "A cantina ainda anota no caderninho"
 | D1 | Pagamento online (Pix ou cartão), simulado | `PagamentosController` — serviço `GatewaySimuladoService` |
 | D2 | Limite de gasto diário definido pelo responsável | `Aluno.LimiteDiario` + validação em `ValidacaoPedidoService` |
 | D3 | Alergias e restrições alimentares sinalizadas no pedido | `Item.Alergenos` + `Aluno.RestricoesAlimentares` + alerta no pedido e no painel |
-| D4 | Aviso de saldo baixo para o responsável | `NotificacaoService` (e-mail/WhatsApp) + badge na tela |
+| D4 | Aviso de saldo baixo para o responsável | Badge na tela a partir do saldo (`NotificacaoService` com e-mail/WhatsApp não implementado) |
 | D5 | Relatório de vendas por período e itens mais vendidos | `RelatoriosController` + export Excel/PDF |
 | D6 | Modo de contingência para quando a internet cair | Cache local do painel/PDV + fila de sincronização |
 
@@ -95,7 +95,7 @@ Desafio: "A cantina ainda anota no caderninho"
 - **C# / ASP.NET Core 8** (Controllers convencionais)
 - **Entity Framework Core 8** + **Pomelo.EntityFrameworkCore.MySql 8.0.2**
 - **MySQL** local
-- **AutoMapper 12.0.1**
+- Conversão entidade → DTO feita à mão (métodos `ParaDto`), sem AutoMapper
 - **ClosedXML 0.104.1** (export Excel)
 - **QuestPDF 2024.10.3** (export PDF)
 - **Swashbuckle.AspNetCore 6.6.2** (Swagger)
@@ -257,7 +257,7 @@ Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 | Id | int | PK |
 | AdultoId | int | FK → Adulto |
 | MesReferencia | DateOnly | primeiro dia do mês fechado |
-| ValorTotal | decimal | |
+| ValorTotal | decimal | valor a pagar: o fiado (soma dos saldos negativos) das contas da família — responsável + filhos — na geração. O consumo do mês aparece só como informativo, para não cobrar de novo o que já foi pago com crédito |
 | Status | enum | `Aberto` \| `Pago` |
 | GeradoEm / PagoEm | DateTime? | |
 
@@ -304,13 +304,15 @@ Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 │       └── StatusFechamento.cs
 │
 ├── DTOs/
-│   ├── Auth/           (LoginDto, LoginResponseDto, RegistroDto)
-│   ├── Alunos/         (AlunoDto, CreateAlunoDto, UpdateLimiteDto)
-│   ├── Itens/          (ItemDto, CardapioItemDto, CreateItemDto, UpdateEstoqueDto)
-│   ├── Pedidos/        (PedidoDto, CreatePedidoDto, CreatePedidoBalcaoDto, ItemPedidoDto)
-│   ├── Painel/         (PedidoPainelDto)
+│   ├── Auth/           (LoginDto, RegistroDto, UsuarioLogadoDto)
+│   ├── Alunos/         (AlunoDto, CreateAlunoDto, LimiteDto, RestricoesDto, CreditoDto)
+│   ├── Itens/          (ItemDto, SalvarItemDto, DisponibilidadeDto)
+│   ├── Pedidos/        (PedidoDto, ItemPedidoDto, CriarPedidoDto, AlterarPedidoDto, VendaBalcaoDto, ItemQuantidadeDto, ResultadoSincronizacaoDto)
+│   ├── Painel/         (PainelDto, PreparoItemDto)
 │   ├── Extratos/       (ExtratoDto, MovimentoDto)
-│   └── Relatorios/     (VendasPeriodoDto, ItemMaisVendidoDto)
+│   ├── Fechamentos/    (FechamentoDto, ConsumoDto, ConsumoItemDto)
+│   ├── Pagamentos/     (MetodoPagamentoDto, CreateMetodoPagamentoDto, SimularPagamentoDto)
+│   └── Relatorios/     (VendaDiaDto, ItemVendidoDto)
 │
 ├── Data/
 │   ├── AppDbContext.cs
@@ -318,23 +320,26 @@ Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 │   └── Migrations/
 │
 ├── Mappings/
-│   └── AutoMapperProfile.cs
+│   └── PedidoMapper.cs              ← Pedido → PedidoDto (Pedidos e Painel)
+│
+├── Extensions/
+│   ├── ClaimsPrincipalExtensions.cs ← User.UsuarioId() lido do cookie
+│   └── AcessoExtensions.cs          ← quem pode ver um aluno (ele, o responsável, o Admin)
 │
 ├── Services/
-│   ├── ValidacaoPedidoService.cs    ← teto R$250 + limite diário + disponibilidade + estoque + janela
-│   ├── ContaService.cs              ← Movimento + Conta.Saldo (transacional)
-│   ├── PedidoService.cs             ← criação/alteração/cancelamento
-│   ├── FechamentoService.cs         ← consolidado do dia 1º
-│   ├── GatewaySimuladoService.cs    ← D1
-│   ├── NotificacaoService.cs        ← D4 (SendGrid + Twilio)
-│   └── AlergiaService.cs            ← D3
+│   ├── PedidoService.cs             ← janela, disponibilidade, estoque, limite diário, teto R$250, criar/alterar/cancelar/entregar, balcão, sincronizar (D6)
+│   ├── ContaService.cs              ← Movimento + Conta.Saldo; crédito simulado (D1)
+│   ├── FechamentoService.cs         ← gera e paga o fechamento mensal
+│   ├── Alergia.cs                   ← conflito de alérgenos (D3), funções estáticas
+│   └── RegraException.cs            ← regra violada → 400 com a mensagem (tratada no Program.cs)
 │
 ├── Reports/
 │   ├── ExcelExportService.cs        ← ClosedXML
 │   └── PdfExportService.cs          ← QuestPDF
 │
-├── appsettings.json                 (não vai pro Git)
-├── appsettings.Example.json         (vai pro Git)
+├── appsettings.json                 (vai pro Git, sem segredo)
+├── appsettings.Development.json     (não vai pro Git: connection string)
+├── appsettings.Example.json         (vai pro Git: modelo)
 ├── Program.cs
 └── Backend.csproj
 ```
@@ -378,8 +383,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | GET | `/api/itens/cardapio?data=&intervaloId=` | Cardápio: oferta em `DispCardapio`, item ativo e `Estoque > 0` — R2 |
 | GET | `/api/itens` | Todos (gestão do Admin) |
 | POST | `/api/itens` | Cria item |
-| PUT | `/api/itens/{id}` | Edita nome, descrição, preço, alérgenos |
-| PUT | `/api/itens/{id}/estoque` | Ajusta estoque |
+| PUT | `/api/itens/{id}` | Edita nome, descrição, preço, estoque, categoria e alérgenos (também usado na edição inline) |
 | PUT | `/api/cardapio/{data}/{intervaloId}/{itemId}` | Disponibiliza ou retira item no dia/intervalo |
 | DELETE | `/api/itens/{id}` | Desativa (soft delete) |
 
@@ -408,7 +412,7 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 | GET | `/api/extratos/aluno/{id}/pdf` | Export PDF (QuestPDF) |
 | GET | `/api/fechamentos/adulto/{id}` | Fechamentos do responsável |
 | POST | `/api/fechamentos/gerar` | Gera consolidado do mês anterior (dia 1º) |
-| POST | `/api/fechamentos/{id}/pagar` | Paga fechamento — D1 |
+| POST | `/api/fechamentos/{id}/pagar` | Paga fechamento (simulado, D1): quita o fiado das contas da família, da mais negativa para a menos; sobra vira crédito do responsável |
 
 ### Pagamentos (D1 — simulado)
 | Método | Rota | Descrição |
@@ -511,21 +515,21 @@ Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples f
 
 ---
 
-## 10. Validação de pedido (`ValidacaoPedidoService`)
+## 10. Validação de pedido (`PedidoService`)
 
 Todo pedido passa pelas seguintes checagens, em ordem:
 
 1. **Janela de tempo** (só `Antecipado`) — agora < `HoraInicio - MinutosAntecedencia`; senão: *"Pedidos para este intervalo já fecharam"*
-2. **Disponibilidade e estoque** — item oferecido em `DispCardapio` para data/intervalo e com `Estoque >= Quantidade`; senão: *"{Item} esgotou"*
-3. **Pedido duplicado** — já existe pedido do aluno neste intervalo/data? Então altera em vez de criar
+2. **Disponibilidade e estoque** — item oferecido em `DispCardapio` para data/intervalo (não vale no balcão) e com `Estoque >= Quantidade`; senão: *"{Item} não está no cardápio deste intervalo"* ou *"{Item} esgotou"*
+3. **Pedido duplicado** (só `Antecipado`) — já existe pedido do usuário neste intervalo/data? Recusa com *"Você já tem um pedido neste intervalo. Altere o pedido existente."*
 4. **Limite diário (D2)** — `gastoDoDia + total <= LimiteDiario`; senão: *"Limite diário de R$ X atingido"*
 5. **Teto de fiado** — `saldo - total >= -250`; senão: *"Limite de R$ 250,00 atingido — somente à vista"*
 
 `AVista` e `Online` pulam as validações 4 e 5 — dinheiro na hora não afeta a conta.
 Pedido de **adulto** também pula 4 e 5 — limite diário e teto de fiado são regras só do aluno.
 
-### Transação de confirmação (`ContaService`)
-Dentro de uma única transação:
+### Gravação (`PedidoService`)
+Num único `SaveChanges` (o EF executa numa transação):
 1. Cria `Pedido` + `ItemPedido` (com preço congelado)
 2. Decrementa `Item.Estoque`
 3. Cria `Movimento` do tipo `Compra`
@@ -533,6 +537,15 @@ Dentro de uma única transação:
 5. Grava `SaldoApos` no movimento
 
 Se qualquer passo falhar, nada é gravado.
+Se outra compra mudar o estoque ou o saldo ao mesmo tempo, nada é gravado e a resposta pede para tentar de novo (`Item.Estoque` e `Conta.Saldo` são tokens de concorrência).
+
+### Ciclo do pedido antecipado
+- **Criar:** debita a conta e baixa o estoque na hora; status `Aberto`
+- **Alterar** (só `Aberto` e com a janela aberta): devolve o estoque antigo, reserva o novo e lança só a diferença (`Compra` se aumentou, `Estorno` se diminuiu)
+- **Cancelar** (mesma condição): devolve o estoque, gera `Estorno` do total; status `Cancelado`
+- **Confirmado:** não é gravado por job — quando a janela fecha, a API mostra o pedido `Aberto` como `Confirmado`
+- **Entregar** (Admin, no painel): status `Entregue`
+- **Balcão:** nasce `Entregue`, não passa pela janela nem pelo `DispCardapio`
 
 ---
 
@@ -617,7 +630,7 @@ npm install
 npm run dev
 ```
 
-**Connection string** (`appsettings.json`):
+**Connection string** (`appsettings.Development.json`, copiado do `appsettings.Example.json`):
 ```json
 {
   "ConnectionStrings": {

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Backend.Data;
 using Backend.DTOs.Auth;
+using Backend.Extensions;
 using Backend.Models;
 using Backend.Models.Enums;
 using Microsoft.AspNetCore.Authentication;
@@ -53,7 +54,7 @@ public class AuthController : ControllerBase
     /// Cadastra um responsável (Usuario + Adulto + Conta com saldo zero).
     /// Aluno é cadastrado pelo responsável logado; Admin não se cadastra.
     /// </summary>
-    /// <returns>201 com o usuário criado, 409 se o e-mail já existe, ou 400 se os dados forem inválidos.</returns>
+    /// <returns>200 com o usuário criado, 409 se o e-mail já existe, ou 400 se os dados forem inválidos.</returns>
     [HttpPost("registro")]
     public async Task<ActionResult<UsuarioLogadoDto>> Registro(RegistroDto dto)
     {
@@ -90,7 +91,7 @@ public class AuthController : ControllerBase
         _db.Contas.Add(conta);
         await _db.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(Me), ParaDto(usuario));
+        return ParaDto(usuario);
     }
 
     /// <summary>
@@ -114,8 +115,7 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UsuarioLogadoDto>> Me()
     {
-        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var usuario = await _db.Usuarios.FindAsync(id);
+        var usuario = await _db.Usuarios.FindAsync(User.UsuarioId());
 
         // Cookie ainda válido, mas o usuário foi desativado ou apagado depois do login
         if (usuario is null || !usuario.Ativo)

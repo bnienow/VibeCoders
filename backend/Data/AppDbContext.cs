@@ -47,6 +47,10 @@ public class AppDbContext : DbContext
         mb.Entity<DispCardapio>().HasKey(d => new { d.Data, d.IntervaloId, d.ItemId });
         mb.Entity<Pedido>().HasIndex(p => new { p.Data, p.CodigoRetirada }).IsUnique();
 
+        // Duas compras ao mesmo tempo: se o estoque ou o saldo mudou desde a leitura, o segundo SaveChanges falha
+        mb.Entity<Item>().Property(i => i.Estoque).IsConcurrencyToken();
+        mb.Entity<Conta>().Property(c => c.Saldo).IsConcurrencyToken();
+
         // Todo enum é gravado pelo nome ("Entregue"), não pelo número
         foreach (var prop in mb.Model.GetEntityTypes()
                      .SelectMany(t => t.GetProperties())

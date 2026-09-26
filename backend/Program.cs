@@ -1,11 +1,15 @@
 using System.Text.Json.Serialization;
 using Backend.Data;
 using Backend.Models;
+using Backend.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// QuestPDF (PDF do extrato) é gratuito para projetos pequenos, mas exige declarar a licença
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 // ---------- Serviços ----------
 
@@ -17,6 +21,11 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 
 // Hash de senha (usado no seed e no login)
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+
+// Regras de negócio: conta corrente e pedidos (janela, estoque, limites)
+builder.Services.AddScoped<ContaService>();
+builder.Services.AddScoped<PedidoService>();
+builder.Services.AddScoped<FechamentoService>();
 
 // Controllers; a API envia e recebe os enums pelo nome ("Entregue"), não pelo número
 builder.Services.AddControllers()
@@ -73,6 +82,27 @@ app.UseHttpsRedirection();
 // Ordem importa: primeiro descobre quem é (cookie), depois checa se pode
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Erros esperados viram resposta com mensagem, que o front mostra na tela:
+// regra violada → 400; conflito de concorrência → 409
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (RegraException e)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync(e.Message);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        // Outra operação mudou o mesmo estoque ou saldo entre a leitura e a gravação: nada foi gravado
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
+        await context.Response.WriteAsync("Outra operação mudou o estoque ou o saldo ao mesmo tempo. Tente de novo.");
+    }
+});
 
 app.MapControllers();
 
