@@ -102,3 +102,6 @@ Pré-requisitos: .NET 8 SDK, Node.js, MySQL e a ferramenta `dotnet-ef` (`dotnet 
 - **Cantina (Admin)**: painel do intervalo (preparo e entrega), balcão (PDV) com lançamento na conta ou à vista, gestão de itens e cardápio do dia, relatórios (Excel) e geração do fechamento
 - **Regras**: teto de fiado de R$ 250 e limite diário (só aluno), pedidos fecham 15 min antes do intervalo, preço congelado no pedido, alerta de alergia
 - **Modo offline do balcão**: sem conexão com a API, as vendas ficam guardadas no navegador e são enviadas quando a conexão volta
+
+  ## Figma Linl
+  [https://www.figma.com/design/u6HNQZYWATlLWYRcxZtNRr/Cantina---Vibe-Codes?node-id=0-1&t=PIVU6MPRJEWMX9XZ-1](url)
