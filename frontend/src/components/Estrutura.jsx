@@ -1,4 +1,5 @@
 import { Link, Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import AvisoOffline from './AvisoOffline';
 import { useAuth } from '../hooks/useAuth';
 import { MENU, PAGINA_INICIAL } from '../rotas';
 
@@ -24,6 +25,7 @@ export default function Estrutura({ permissoes }) {
       <nav className="site-nav" aria-label="Navegação principal">{MENU[usuario.permissao].map(([texto, rota]) => <NavLink key={rota} to={rota} end>{texto}</NavLink>)}</nav>
       <div className="header-actions"><strong className="small">{usuario.nome}</strong><button type="button" className="btn secondary" onClick={encerrarSessao}>Sair</button></div>
     </div></header>
+    <AvisoOffline />
     <main className="main"><div className="container"><Outlet /></div></main>
   </div>;
 }

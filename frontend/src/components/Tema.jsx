@@ -33,6 +33,11 @@ p { line-height: 1.5; }
 .site-nav a:hover { background: #eef4ef; }
 .site-nav a.active { background: #e2efe8; color: #17503e; }
 
+/* Faixa do modo offline (sem conexão com a API) */
+.faixa-offline { background: #fff1d7; color: #6f4d0c; border-bottom: 1px solid #f0d9a8; padding: 12px 0; font-size: 14px; }
+.faixa-offline.ok { background: #e8f5ee; color: #185a42; border-color: #cfe8da; }
+.faixa-offline .atencao { color: #a13f2a; font-weight: 700; }
+
 /* ---------- Layout ---------- */
 .row { display: flex; align-items: center; gap: 12px; }
 .wrap { flex-wrap: wrap; }

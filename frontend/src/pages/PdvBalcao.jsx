@@ -2,21 +2,33 @@ import { useState } from 'react';
 import Feedback from '../components/Feedback';
 import Quantidade from '../components/Quantidade';
 import { useApi } from '../hooks/useApi';
+import { useConexao } from '../hooks/useConexao';
 import { alunoService } from '../services/alunoService';
+import { SemConexaoError } from '../services/conexao';
+import { filaOffline } from '../services/filaOffline';
 import { CATEGORIAS, dinheiro } from '../services/formatos';
 import { itemService } from '../services/itemService';
 import { pedidoService } from '../services/pedidoService';
 
 const TETO_FIADO = -250;
+const MAXIMO_SUGESTOES = 8;
 
 export default function PdvBalcao() {
-  // Sem intervalo: tudo que está ativo e com estoque (o balcão nunca fecha)
-  const { dados: itens, recarregar: recarregarItens } = useApi(() => itemService.cardapio(), []);
+  const { online, pendentes } = useConexao();
+
+  // Itens e alunos guardam cópia no navegador: sem conexão, o balcão usa a última cópia (o balcão nunca fecha).
+  // Recarregam quando a conexão volta e quando a fila é enviada (dependências), para atualizar estoque e saldos.
+  const { dados: itens, recarregar: recarregarItens } = useApi(() => itemService.cardapio(), [online, pendentes.length], 'itens-balcao');
+  const { dados: alunos, recarregar: recarregarAlunos } = useApi(() => alunoService.buscar(''), [online, pendentes.length], 'alunos-balcao');
+
   const [categoria, setCategoria] = useState('Salgado'), [quantidades, setQuantidades] = useState({});
   const [busca, setBusca] = useState(''), [aluno, setAluno] = useState(null), [feedback, setFeedback] = useState({});
 
-  // Busca o comprador na API a partir de 2 letras (enquanto nenhum estiver escolhido)
-  const { dados: encontrados } = useApi(() => busca.length >= 2 && !aluno ? alunoService.buscar(busca) : Promise.resolve([]), [busca, aluno]);
+  // Busca o comprador na lista guardada (funciona online e offline)
+  const termo = busca.trim().toLowerCase();
+  const encontrados = termo.length >= 2 && !aluno
+    ? (alunos ?? []).filter(a => `${a.nome} ${a.email}`.toLowerCase().includes(termo)).slice(0, MAXIMO_SUGESTOES)
+    : [];
 
   const linhas = (itens ?? []).filter(i => quantidades[i.id]);
   const total = linhas.reduce((soma, i) => soma + i.precoUnitario * quantidades[i.id], 0);
@@ -25,18 +37,31 @@ export default function PdvBalcao() {
 
   const mudar = (id, n) => setQuantidades(q => ({ ...q, [id]: n }));
 
+  function limparAtendimento() {
+    setQuantidades({}); setBusca(''); setAluno(null);
+  }
+
+  // Sem conexão: a venda vai para a fila e é enviada quando a API voltar (a API reconfere as regras)
+  function guardarNaFila(venda) {
+    const forma = venda.formaPagamento === 'Conta' ? 'na conta' : 'à vista';
+    filaOffline.adicionar(venda, `${aluno.nome} · ${dinheiro(total)} ${forma}`);
+    limparAtendimento();
+    setFeedback({ sucesso: 'Sem conexão: venda guardada. Ela será enviada quando a conexão voltar.' });
+  }
+
   async function finalizar(formaPagamento) {
+    const venda = { usuarioId: aluno.id, formaPagamento, itens: linhas.map(i => ({ itemId: i.id, quantidade: quantidades[i.id] })) };
+    if (!online) return guardarNaFila(venda);
+
     try {
-      const pedido = await pedidoService.venderNoBalcao({
-        usuarioId: aluno.id,
-        formaPagamento,
-        itens: linhas.map(i => ({ itemId: i.id, quantidade: quantidades[i.id] })),
-      });
-      setQuantidades({}); setBusca(''); setAluno(null);
+      const pedido = await pedidoService.venderNoBalcao(venda);
+      limparAtendimento();
       setFeedback({ sucesso: `Venda ${pedido.codigoRetirada} registrada: ${dinheiro(pedido.total)} ${formaPagamento === 'Conta' ? 'na conta' : 'à vista'}.` });
       recarregarItens();
+      recarregarAlunos();
     } catch (e) {
-      setFeedback({ erro: e.message });
+      if (e instanceof SemConexaoError) guardarNaFila(venda); // a API caiu bem na hora da venda
+      else setFeedback({ erro: e.message });
     }
   }
 
@@ -60,13 +85,13 @@ export default function PdvBalcao() {
         <label className="field">Comprador (nome ou e-mail)
           <input className="input" type="search" value={busca} onChange={e => { setBusca(e.target.value); setAluno(null); }}/>
         </label>
-        {busca.length >= 2 && !aluno && <div className="stack" style={{ gap: 6 }}>
-          {encontrados?.map(a => <button key={a.id} className="btn secondary full small" onClick={() => { setAluno(a); setBusca(a.nome); }}>{a.nome} · {a.email}</button>)}
-          {encontrados && !encontrados.length && <span className="small muted">Nenhum aluno encontrado.</span>}
+        {termo.length >= 2 && !aluno && <div className="stack" style={{ gap: 6 }}>
+          {encontrados.map(a => <button key={a.id} className="btn secondary full small" onClick={() => { setAluno(a); setBusca(a.nome); }}>{a.nome} · {a.email}</button>)}
+          {!encontrados.length && <span className="small muted">Nenhum aluno encontrado.</span>}
         </div>}
         {aluno && <div className="note">
           <strong>{aluno.nome}</strong>
-          <div className="small">Saldo {dinheiro(aluno.saldo)} · limite diário {aluno.limiteDiario == null ? '—' : dinheiro(aluno.limiteDiario)}</div>
+          <div className="small">Saldo {dinheiro(aluno.saldo)}{online ? '' : ' (da última atualização)'} · limite diário {aluno.limiteDiario == null ? '—' : dinheiro(aluno.limiteDiario)}</div>
           <div className="small">Restrições: {aluno.restricoes.join(', ') || 'nenhuma'}</div>
         </div>}
 

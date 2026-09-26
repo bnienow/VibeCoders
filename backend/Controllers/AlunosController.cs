@@ -27,7 +27,8 @@ public class AlunosController : ControllerBase
     }
 
     /// <summary>
-    /// Busca alunos por nome ou e-mail (campo de busca do balcão). Até 20 resultados.
+    /// Busca alunos por nome ou e-mail (campo de busca do balcão): até 20 resultados.
+    /// Sem busca, devolve todos (o balcão guarda essa lista para funcionar sem conexão).
     /// </summary>
     [Authorize(Roles = "Admin")]
     [HttpGet]
@@ -37,7 +38,7 @@ public class AlunosController : ControllerBase
             .Where(a => a.Usuario.Ativo &&
                         (busca == null || a.Usuario.Nome.Contains(busca) || a.Usuario.Email.Contains(busca)))
             .OrderBy(a => a.Usuario.Nome)
-            .Take(20)
+            .Take(busca == null ? int.MaxValue : 20)
             .ToListAsync();
 
         return await ParaDtos(alunos);
