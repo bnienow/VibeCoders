@@ -44,7 +44,7 @@
 **Fluxo de comunicação:**
 
 ```
-Controller → Service (opcional) → AppDbContext (EF Core) → MySQL
+Controller → Service → Repository → AppDbContext (EF Core) → MySQL
 Controller → NotificacaoService → SendGrid / Twilio (APIs externas)
 ```
 
@@ -107,7 +107,7 @@ Controller → NotificacaoService → SendGrid / Twilio (APIs externas)
 
 ## Regras de decisão rápida (pra não perder tempo decidindo de novo)
 
-- **Repository:** não usa — `AppDbContext` já cumpre esse papel.
-- **Service:** só cria quando há chamada a API externa (SendGrid/Twilio) ou regra de negócio real (cálculo, validação). CRUD simples fica direto no Controller.
+- **Camadas:** um projeto só, em três pastas: `Api/` (controllers, relatórios), `Domain/` (models, DTOs e as interfaces em `Interfaces/Repositories` e `Interfaces/Services`) e `Data/` (DbContext, migrations e as implementações de repositórios e services). Dependência: Api → Domain ← Data; o Domain não conhece EF Core.
+- **Gravação:** Repository não chama `SaveChanges`; o Service grava via `IUnitOfWork.SalvarAsync()`, uma vez por operação (uma transação).
 - **DTOs:** sempre — nunca retorna `Model` do EF Core direto na API.
 - **AutoMapper:** usa pra converter Model <-> DTO, evita mapeamento manual repetitivo.

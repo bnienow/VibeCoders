@@ -8,11 +8,12 @@ Ferramentas usadas: **Claude Code** (Anthropic) e **OpenAI Codex** (primeira ver
 
 | Parte | Arquivos |
 |---|---|
-| Services (regras de negócio) | `Services/PedidoService.cs`, `ContaService.cs`, `FechamentoService.cs`, `Alergia.cs`, `RegraException.cs` |
-| Reports (exportação) | `Reports/PdfExportService.cs` (QuestPDF), `Reports/ExcelExportService.cs` (ClosedXML) |
-| Maioria dos DTOs | `DTOs/Pedidos`, `DTOs/Painel`, `DTOs/Extratos`, `DTOs/Fechamentos`, `DTOs/Pagamentos`, `DTOs/Relatorios`, `DTOs/Itens` |
+| Services (regras de negócio) | `Data/Services/*`, `Domain/Interfaces/Services/*`, `Domain/Helpers/Alergia.cs`, `Domain/Exceptions/*` |
+| Repositories (acesso ao banco) | `Data/Repositories/*`, `Domain/Interfaces/Repositories/*` |
+| Reports (exportação) | `Api/Reports/PdfExportService.cs` (QuestPDF), `Api/Reports/ExcelExportService.cs` (ClosedXML) |
+| Maioria dos DTOs | `Domain/DTOs/Pedidos`, `Domain/DTOs/Painel`, `Domain/DTOs/Extratos`, `Domain/DTOs/Fechamentos`, `Domain/DTOs/Pagamentos`, `Domain/DTOs/Relatorios`, `Domain/DTOs/Itens` |
 | Controllers mais complexos | `PedidosController`, `PainelController`, `AlunosController`, `ExtratosController`, `FechamentosController`, `PagamentosController`, `RelatoriosController`, `ItensController` |
-| Apoio | `Mappings/PedidoMapper.cs`, `Extensions/*`, `Data/SeedData.cs` (massa de teste) |
+| Apoio | `Domain/Mappings/PedidoMapper.cs`, `Api/Extensions/*`, `Data/SeedData.cs` (massa de teste) |
 
 ## Frontend (React + Vite)
 

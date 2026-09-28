@@ -25,7 +25,7 @@ namespace Backend.Data.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
-            modelBuilder.Entity("Backend.Models.Adulto", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Adulto", b =>
                 {
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
@@ -50,7 +50,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Adultos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Aluno", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Aluno", b =>
                 {
                     b.Property<int>("UsuarioId")
                         .HasColumnType("int");
@@ -82,7 +82,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Alunos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Conta", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Conta", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -111,7 +111,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Contas");
                 });
 
-            modelBuilder.Entity("Backend.Models.DispCardapio", b =>
+            modelBuilder.Entity("Backend.Domain.Models.DispCardapio", b =>
                 {
                     b.Property<DateOnly>("Data")
                         .HasColumnType("date");
@@ -134,7 +134,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("DispCardapios");
                 });
 
-            modelBuilder.Entity("Backend.Models.Fechamento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Fechamento", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -170,7 +170,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Fechamentos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Intervalo", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Intervalo", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -197,7 +197,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Intervalos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Item", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Item", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -240,7 +240,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Itens");
                 });
 
-            modelBuilder.Entity("Backend.Models.ItemPedido", b =>
+            modelBuilder.Entity("Backend.Domain.Models.ItemPedido", b =>
                 {
                     b.Property<int>("PedidoId")
                         .HasColumnType("int");
@@ -266,7 +266,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("ItensPedido");
                 });
 
-            modelBuilder.Entity("Backend.Models.MetodoPagamento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.MetodoPagamento", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -302,7 +302,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("MetodosPagamento");
                 });
 
-            modelBuilder.Entity("Backend.Models.Movimento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Movimento", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -346,7 +346,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Movimentos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Pedido", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Pedido", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -411,7 +411,7 @@ namespace Backend.Data.Migrations
                     b.ToTable("Pedidos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Usuario", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Usuario", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -453,16 +453,16 @@ namespace Backend.Data.Migrations
                     b.ToTable("Usuarios");
                 });
 
-            modelBuilder.Entity("Backend.Models.Adulto", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Adulto", b =>
                 {
-                    b.HasOne("Backend.Models.MetodoPagamento", "MetodoPagamentoPadrao")
+                    b.HasOne("Backend.Domain.Models.MetodoPagamento", "MetodoPagamentoPadrao")
                         .WithMany()
                         .HasForeignKey("MetodoPagamentoPadraoId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Backend.Models.Usuario", "Usuario")
+                    b.HasOne("Backend.Domain.Models.Usuario", "Usuario")
                         .WithOne("Adulto")
-                        .HasForeignKey("Backend.Models.Adulto", "UsuarioId")
+                        .HasForeignKey("Backend.Domain.Models.Adulto", "UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -471,17 +471,17 @@ namespace Backend.Data.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Backend.Models.Aluno", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Aluno", b =>
                 {
-                    b.HasOne("Backend.Models.Adulto", "Adulto")
+                    b.HasOne("Backend.Domain.Models.Adulto", "Adulto")
                         .WithMany("Filhos")
                         .HasForeignKey("AdultoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Backend.Models.Usuario", "Usuario")
+                    b.HasOne("Backend.Domain.Models.Usuario", "Usuario")
                         .WithOne("Aluno")
-                        .HasForeignKey("Backend.Models.Aluno", "UsuarioId")
+                        .HasForeignKey("Backend.Domain.Models.Aluno", "UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -490,26 +490,26 @@ namespace Backend.Data.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Backend.Models.Conta", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Conta", b =>
                 {
-                    b.HasOne("Backend.Models.Usuario", "Usuario")
+                    b.HasOne("Backend.Domain.Models.Usuario", "Usuario")
                         .WithOne("Conta")
-                        .HasForeignKey("Backend.Models.Conta", "UsuarioId")
+                        .HasForeignKey("Backend.Domain.Models.Conta", "UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Backend.Models.DispCardapio", b =>
+            modelBuilder.Entity("Backend.Domain.Models.DispCardapio", b =>
                 {
-                    b.HasOne("Backend.Models.Intervalo", "Intervalo")
+                    b.HasOne("Backend.Domain.Models.Intervalo", "Intervalo")
                         .WithMany()
                         .HasForeignKey("IntervaloId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend.Models.Item", "Item")
+                    b.HasOne("Backend.Domain.Models.Item", "Item")
                         .WithMany()
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -520,9 +520,9 @@ namespace Backend.Data.Migrations
                     b.Navigation("Item");
                 });
 
-            modelBuilder.Entity("Backend.Models.Fechamento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Fechamento", b =>
                 {
-                    b.HasOne("Backend.Models.Adulto", "Adulto")
+                    b.HasOne("Backend.Domain.Models.Adulto", "Adulto")
                         .WithMany("Fechamentos")
                         .HasForeignKey("AdultoId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -531,15 +531,15 @@ namespace Backend.Data.Migrations
                     b.Navigation("Adulto");
                 });
 
-            modelBuilder.Entity("Backend.Models.ItemPedido", b =>
+            modelBuilder.Entity("Backend.Domain.Models.ItemPedido", b =>
                 {
-                    b.HasOne("Backend.Models.Item", "Item")
+                    b.HasOne("Backend.Domain.Models.Item", "Item")
                         .WithMany()
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend.Models.Pedido", "Pedido")
+                    b.HasOne("Backend.Domain.Models.Pedido", "Pedido")
                         .WithMany("Itens")
                         .HasForeignKey("PedidoId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -550,9 +550,9 @@ namespace Backend.Data.Migrations
                     b.Navigation("Pedido");
                 });
 
-            modelBuilder.Entity("Backend.Models.MetodoPagamento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.MetodoPagamento", b =>
                 {
-                    b.HasOne("Backend.Models.Adulto", "Adulto")
+                    b.HasOne("Backend.Domain.Models.Adulto", "Adulto")
                         .WithMany("MetodosPagamento")
                         .HasForeignKey("AdultoId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -561,15 +561,15 @@ namespace Backend.Data.Migrations
                     b.Navigation("Adulto");
                 });
 
-            modelBuilder.Entity("Backend.Models.Movimento", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Movimento", b =>
                 {
-                    b.HasOne("Backend.Models.Conta", "Conta")
+                    b.HasOne("Backend.Domain.Models.Conta", "Conta")
                         .WithMany("Movimentos")
                         .HasForeignKey("ContaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Backend.Models.Pedido", "Pedido")
+                    b.HasOne("Backend.Domain.Models.Pedido", "Pedido")
                         .WithMany()
                         .HasForeignKey("PedidoId");
 
@@ -578,13 +578,13 @@ namespace Backend.Data.Migrations
                     b.Navigation("Pedido");
                 });
 
-            modelBuilder.Entity("Backend.Models.Pedido", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Pedido", b =>
                 {
-                    b.HasOne("Backend.Models.Intervalo", "Intervalo")
+                    b.HasOne("Backend.Domain.Models.Intervalo", "Intervalo")
                         .WithMany()
                         .HasForeignKey("IntervaloId");
 
-                    b.HasOne("Backend.Models.Usuario", "Usuario")
+                    b.HasOne("Backend.Domain.Models.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -595,7 +595,7 @@ namespace Backend.Data.Migrations
                     b.Navigation("Usuario");
                 });
 
-            modelBuilder.Entity("Backend.Models.Adulto", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Adulto", b =>
                 {
                     b.Navigation("Fechamentos");
 
@@ -604,17 +604,17 @@ namespace Backend.Data.Migrations
                     b.Navigation("MetodosPagamento");
                 });
 
-            modelBuilder.Entity("Backend.Models.Conta", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Conta", b =>
                 {
                     b.Navigation("Movimentos");
                 });
 
-            modelBuilder.Entity("Backend.Models.Pedido", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Pedido", b =>
                 {
                     b.Navigation("Itens");
                 });
 
-            modelBuilder.Entity("Backend.Models.Usuario", b =>
+            modelBuilder.Entity("Backend.Domain.Models.Usuario", b =>
                 {
                     b.Navigation("Adulto");
 

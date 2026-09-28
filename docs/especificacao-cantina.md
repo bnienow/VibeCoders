@@ -265,81 +265,64 @@ Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 
 ## 7. Estrutura do backend
 
+Um projeto só (`Backend.csproj`), dividido em três pastas. Cada pasta é um namespace (`Backend.Api`, `Backend.Domain`, `Backend.Data`), e as dependências vão num sentido só:
+
+```
+Api ──→ Domain ←── Data
+```
+
+- **Domain** é o centro: entidades (com as regras que só dependem delas, como a janela do pedido), DTOs e as **interfaces** de repositório e de service. Não conhece EF Core, controllers nem geração de arquivo.
+- **Data** implementa essas interfaces: os repositórios (EF Core) e os services (regras de negócio).
+- **Api** recebe o HTTP e chama os services só pelas interfaces do Domain. O `Program.cs` (raiz) liga tudo no DI.
+
 ```
 /backend
-├── Controllers/
-│   ├── AuthController.cs
-│   ├── UsuariosController.cs
-│   ├── AlunosController.cs
-│   ├── AdultosController.cs
-│   ├── ItensController.cs
-│   ├── PedidosController.cs
-│   ├── PainelController.cs
-│   ├── ExtratosController.cs
-│   ├── FechamentosController.cs
-│   ├── PagamentosController.cs
-│   └── RelatoriosController.cs
+├── Api/                                 ← HTTP: o que o front enxerga
+│   ├── Controllers/                     ← Auth, Alunos, Itens, Pedidos, Painel, Extratos,
+│   │                                       Fechamentos, Pagamentos, Relatorios, Intervalos
+│   ├── Reports/
+│   │   ├── ExcelExportService.cs        ← ClosedXML
+│   │   └── PdfExportService.cs          ← QuestPDF
+│   └── Extensions/
+│       ├── ClaimsPrincipalExtensions.cs    ← User.UsuarioId() lido do cookie
+│       └── InjecaoDependenciaExtensions.cs ← registra repositórios e services no DI
 │
-├── Models/
-│   ├── Usuario.cs
-│   ├── Aluno.cs
-│   ├── Adulto.cs
-│   ├── Item.cs
-│   ├── Conta.cs
-│   ├── DispCardapio.cs
-│   ├── Pedido.cs
-│   ├── ItemPedido.cs
-│   ├── Movimento.cs
-│   ├── Intervalo.cs
-│   ├── MetodoPagamento.cs
-│   ├── Fechamento.cs
-│   └── Enums/
-│       ├── Permissao.cs
-│       ├── StatusPedido.cs
-│       ├── TipoVenda.cs
-│       ├── FormaPagamento.cs
-│       ├── TipoMovimento.cs
-│       ├── CategoriaItem.cs
-│       ├── TipoMetodoPagamento.cs
-│       └── StatusFechamento.cs
+├── Domain/                              ← contratos e entidades, sem dependência de banco
+│   ├── Models/                          ← entidades (Usuario, Aluno, Adulto, Conta, Item, Pedido, ...) e regras só delas:
+│   │   │                                   Pedido.StatusAtual()/PodeAlterar(), Intervalo.FechamentoEm(), Aluno.VisivelPara()
+│   │   └── Enums/
+│   ├── DTOs/                            ← o que trafega na API (Auth, Alunos, Itens, Pedidos, Painel,
+│   │                                       Extratos, Fechamentos, Pagamentos, Relatorios, Intervalos)
+│   ├── Interfaces/
+│   │   ├── Repositories/                ← IUsuarioRepository, IAlunoRepository, IAdultoRepository, IContaRepository,
+│   │   │                                   IMetodoPagamentoRepository, IItemRepository, IIntervaloRepository,
+│   │   │                                   IPedidoRepository, IFechamentoRepository, IUnitOfWork
+│   │   └── Services/                    ← IAuthService, IAlunoService, IContaService, IExtratoService, IFechamentoService,
+│   │                                       IIntervaloService, IItemService, IPagamentoService, IPainelService,
+│   │                                       IPedidoService, IRelatorioService
+│   ├── Exceptions/
+│   │   ├── RegraException.cs            ← regra violada → 400 com a mensagem (tratada no Program.cs)
+│   │   └── ConflitoException.cs         ← recurso já existe (ex.: e-mail) → 409
+│   ├── Helpers/
+│   │   └── Alergia.cs                   ← conflito de alérgenos (D3), funções estáticas
+│   └── Mappings/
+│       └── PedidoMapper.cs              ← Pedido → PedidoDto (Pedidos e Painel)
 │
-├── DTOs/
-│   ├── Auth/           (LoginDto, RegistroDto, UsuarioLogadoDto)
-│   ├── Alunos/         (AlunoDto, CreateAlunoDto, LimiteDto, RestricoesDto, CreditoDto)
-│   ├── Itens/          (ItemDto, SalvarItemDto, DisponibilidadeDto)
-│   ├── Pedidos/        (PedidoDto, ItemPedidoDto, CriarPedidoDto, AlterarPedidoDto, VendaBalcaoDto, ItemQuantidadeDto, ResultadoSincronizacaoDto)
-│   ├── Painel/         (PainelDto, PreparoItemDto)
-│   ├── Extratos/       (ExtratoDto, MovimentoDto)
-│   ├── Fechamentos/    (FechamentoDto, ConsumoDto, ConsumoItemDto)
-│   ├── Pagamentos/     (MetodoPagamentoDto, CreateMetodoPagamentoDto, SimularPagamentoDto)
-│   └── Relatorios/     (VendaDiaDto, ItemVendidoDto)
-│
-├── Data/
+├── Data/                                ← EF Core e MySQL
 │   ├── AppDbContext.cs
-│   ├── SeedData.cs             ← massa de teste fictícia
-│   └── Migrations/
+│   ├── SeedData.cs                      ← massa de teste fictícia
+│   ├── Migrations/
+│   ├── Repositories/                    ← implementações de Domain/Interfaces/Repositories + UnitOfWork
+│   └── Services/                        ← implementações de Domain/Interfaces/Services
+│       ├── PedidoService.cs             ← disponibilidade, estoque, limite diário, teto R$250, criar/alterar/cancelar/entregar, balcão, sincronizar (D6)
+│       ├── ContaService.cs              ← Movimento + Conta.Saldo; crédito simulado (D1)
+│       ├── FechamentoService.cs         ← gera e paga o fechamento mensal
+│       └── AuthService.cs, AlunoService.cs, ExtratoService.cs, IntervaloService.cs,
+│           ItemService.cs, PagamentoService.cs, PainelService.cs, RelatorioService.cs
 │
-├── Mappings/
-│   └── PedidoMapper.cs              ← Pedido → PedidoDto (Pedidos e Painel)
-│
-├── Extensions/
-│   ├── ClaimsPrincipalExtensions.cs ← User.UsuarioId() lido do cookie
-│   └── AcessoExtensions.cs          ← quem pode ver um aluno (ele, o responsável, o Admin)
-│
-├── Services/
-│   ├── PedidoService.cs             ← janela, disponibilidade, estoque, limite diário, teto R$250, criar/alterar/cancelar/entregar, balcão, sincronizar (D6)
-│   ├── ContaService.cs              ← Movimento + Conta.Saldo; crédito simulado (D1)
-│   ├── FechamentoService.cs         ← gera e paga o fechamento mensal
-│   ├── Alergia.cs                   ← conflito de alérgenos (D3), funções estáticas
-│   └── RegraException.cs            ← regra violada → 400 com a mensagem (tratada no Program.cs)
-│
-├── Reports/
-│   ├── ExcelExportService.cs        ← ClosedXML
-│   └── PdfExportService.cs          ← QuestPDF
-│
-├── appsettings.json                 (vai pro Git, sem segredo)
-├── appsettings.Development.json     (não vai pro Git: connection string)
-├── appsettings.Example.json         (vai pro Git: modelo)
+├── appsettings.json                     (vai pro Git, sem segredo)
+├── appsettings.Development.json         (não vai pro Git: connection string)
+├── appsettings.Example.json             (vai pro Git: modelo)
 ├── Program.cs
 └── Backend.csproj
 ```
@@ -347,12 +330,18 @@ Extrato da `Conta` — alimenta extrato (R7) e fechamento.
 ### Fluxo de chamadas
 
 ```
-Controller → Service → AppDbContext (EF Core) → MySQL
+Api/Controller → Domain/Interfaces/Services ← Data/Services → Domain/Interfaces/Repositories ← Data/Repositories → AppDbContext (EF Core) → MySQL
 Controller → NotificacaoService → SendGrid / Twilio
-Controller → Excel/PdfExportService → arquivo de download
+Api/Controller → Api/Reports (Excel/PDF) → arquivo de download
 ```
 
-Sem camada de Repository — o `DbContext` já cumpre esse papel. CRUD simples fica direto no Controller; Service só onde há regra de negócio real ou chamada externa.
+Três camadas, todas por interface e registradas como Scoped:
+
+- **Controller:** só HTTP — autorização por role, lê o usuário do cookie, chama o service e converte nulo em 404.
+- **Service:** regras de negócio e montagem dos DTOs. Não conhece o `AppDbContext`, só as interfaces de repositório.
+- **Repository:** as consultas EF Core. Não chama `SaveChanges`; quem grava é o service, via `IUnitOfWork.SalvarAsync()`, uma vez por operação. Como todos compartilham o mesmo `AppDbContext` da requisição, a operação inteira (pedido + estoque + conta + movimento) continua numa transação só.
+
+Quem pode ver um aluno (ele, o responsável, o Admin) é `Aluno.VisivelPara()`.
 
 ---
 

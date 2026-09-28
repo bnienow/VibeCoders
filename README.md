@@ -38,15 +38,9 @@ Sem biblioteca de UI: o estilo fica em um único arquivo (`src/components/Tema.j
 ```
 VibeCoders/
 ├── backend/                         API ASP.NET Core
-│   ├── Controllers/                 rotas: Auth, Itens, Intervalos, Pedidos, Painel, Alunos,
-│   │                                Extratos, Fechamentos, Pagamentos, Relatorios
-│   ├── Services/                    regras de negócio (pedido, conta, fechamento, alergia)
-│   ├── Models/                      entidades do banco + Enums/
-│   ├── DTOs/                        formatos de entrada e saída da API (nunca expõe entidade)
-│   ├── Data/                        AppDbContext, SeedData (massa de teste) e Migrations/
-│   ├── Mappings/                    conversão Pedido → PedidoDto
-│   ├── Extensions/                  usuário logado (cookie) e regra de acesso a aluno
-│   ├── Reports/                     exportação PDF e Excel
+│   ├── Api/                         HTTP: Controllers/ (rotas), Reports/ (PDF e Excel), Extensions/ (cookie, DI)
+│   ├── Domain/                      contratos: Models/ (+Enums), DTOs/, Interfaces/ (Repositories, Services), Exceptions/, Helpers/, Mappings/
+│   ├── Data/                        implementações: Repositories/, Services/ (regras de negócio), AppDbContext, SeedData, Migrations/
 │   ├── Program.cs                   configuração: banco, cookie, serviços, tratamento de erros
 │   └── appsettings*.json            configuração (a connection string fica no Development, fora do Git)
 │

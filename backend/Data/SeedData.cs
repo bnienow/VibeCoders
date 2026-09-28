@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
-using Backend.Models;
-using Backend.Models.Enums;
-using Backend.Services;
+using Backend.Domain.Helpers;
+using Backend.Domain.Models;
+using Backend.Domain.Models.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 

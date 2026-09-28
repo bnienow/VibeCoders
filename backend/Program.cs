@@ -1,7 +1,8 @@
 using System.Text.Json.Serialization;
+using Backend.Api.Extensions;
 using Backend.Data;
-using Backend.Models;
-using Backend.Services;
+using Backend.Domain.Exceptions;
+using Backend.Domain.Models;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -22,10 +23,9 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 // Hash de senha (usado no seed e no login)
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 
-// Regras de negócio: conta corrente e pedidos (janela, estoque, limites)
-builder.Services.AddScoped<ContaService>();
-builder.Services.AddScoped<PedidoService>();
-builder.Services.AddScoped<FechamentoService>();
+// Camadas: Controller → Service (regras) → Repository (EF Core)
+builder.Services.AddRepositorios();
+builder.Services.AddServicos();
 
 // Controllers; a API envia e recebe os enums pelo nome ("Entregue"), não pelo número
 builder.Services.AddControllers()
@@ -84,7 +84,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Erros esperados viram resposta com mensagem, que o front mostra na tela:
-// regra violada → 400; conflito de concorrência → 409
+// regra violada → 400; recurso já existe ou conflito de concorrência → 409
 app.Use(async (context, next) =>
 {
     try
@@ -94,6 +94,11 @@ app.Use(async (context, next) =>
     catch (RegraException e)
     {
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync(e.Message);
+    }
+    catch (ConflitoException e)
+    {
+        context.Response.StatusCode = StatusCodes.Status409Conflict;
         await context.Response.WriteAsync(e.Message);
     }
     catch (DbUpdateConcurrencyException)
